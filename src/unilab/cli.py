@@ -28,6 +28,7 @@ SUPPORTED_SIMS = (
     "superdex",
 )
 SUPPORTED_RENDER_MODES = ("auto", "interactive", "record", "none")
+TRAIN_SIM_CHOICES = (*SUPPORTED_SIMS, "multisim")
 OFFPOLICY_ALGOS = {"sac", "td3", "flashsac"}
 # Built-in algos whose entrypoint script does not follow the train_<algo>.py
 # naming convention.
@@ -41,6 +42,7 @@ RESERVED_OVERRIDE_KEYS = {
     "task",
     "training.sim_backend",
     "training.play_only",
+    "training.evaluation.enabled",
 }
 TASK_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]*$")
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -363,13 +365,30 @@ def build_command(
     profile: str | None = None,
     load_run: str | None = None,
     render_mode: str | None = None,
+    metrics: bool = False,
     root: Path | None = None,
 ) -> list[str]:
     selected_root = root or package_root()
     _check_task_name(task)
     _check_profile(profile)
     _check_reserved_overrides(overrides)
-    _check_runtime_requirements(algo, sim)
+    if sim == "multisim":
+        if mode != "train" or algo != "ppo" or task != "g1_walk_flat" or profile is not None:
+            raise SystemExit(
+                "multisim selects the G1 PPO training owner; eval uses a real --sim and --profile multisim"
+            )
+    else:
+        _check_runtime_requirements(algo, sim)
+    if metrics:
+        if mode != "eval" or algo != "ppo" or task != "g1_walk_flat" or profile != "multisim":
+            raise SystemExit(
+                "--metrics requires eval --algo ppo --task g1_walk_flat --profile multisim"
+            )
+        if render_mode not in (None, "none") or _override_value(
+            overrides, "training.play_render_mode"
+        ) not in (None, "none"):
+            raise SystemExit("--metrics runs without rendering; do not request a renderer")
+        render_mode = "none"
 
     route = build_route(algo, task, sim, profile, root=selected_root)
     use_interactive_play = _uses_mujoco_interactive_play(
@@ -397,7 +416,7 @@ def build_command(
     sim_backend_override: str | None = None
     owner_yaml = _owner_yaml_path(route, selected_root)
     if not owner_yaml.is_file():
-        if mode != "eval":
+        if mode != "eval" or metrics:
             raise SystemExit(
                 f"No owner config exists for algo={algo}, task={task}, sim={sim}: {owner_yaml}"
             )
@@ -421,7 +440,22 @@ def build_command(
             file=sys.stderr,
         )
 
+    if sim == "multisim":
+        from omegaconf import OmegaConf
+
+        source_config = OmegaConf.load(owner_yaml)
+        sources = OmegaConf.select(source_config, "training.multi_source.sources")
+        if not sources:
+            raise SystemExit("The multisim owner must declare training.multi_source.sources")
+        for source in sources:
+            backend = str(source.backend)
+            if backend not in SUPPORTED_SIMS:
+                raise SystemExit(f"Unknown physical backend in multisim owner: {backend}")
+            _check_runtime_requirements(algo, backend)
+
     generated = [] if use_interactive_play else list(route.generated_overrides)
+    if metrics:
+        generated.append("training.evaluation.enabled=true")
     if sim_backend_override is not None:
         generated.append(f"training.sim_backend={sim_backend_override}")
     if render_mode is not None and _override_value(overrides, "training.play_render_mode") is None:
@@ -479,11 +513,18 @@ def _train_eval_parser(*, mode: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--task", required=True)
-    parser.add_argument("--sim", required=True, choices=SUPPORTED_SIMS)
+    parser.add_argument(
+        "--sim", required=True, choices=TRAIN_SIM_CHOICES if mode == "train" else SUPPORTED_SIMS
+    )
     parser.add_argument("--profile", default=None)
     parser.add_argument("--render-mode", choices=SUPPORTED_RENDER_MODES, default=None)
     if mode == "eval":
         parser.add_argument("--load-run", default=None)
+        parser.add_argument(
+            "--metrics",
+            action="store_true",
+            help="Run fixed-seed G1 multisim metrics without rendering",
+        )
     return parser
 
 
@@ -508,6 +549,7 @@ def _run_train_eval(mode: str, argv: Sequence[str] | None = None) -> int:
         overrides=overrides,
         load_run=getattr(args, "load_run", None),
         render_mode=args.render_mode,
+        metrics=getattr(args, "metrics", False),
     )
     return subprocess.run(command, check=False).returncode
 

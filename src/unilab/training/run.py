@@ -19,7 +19,7 @@ from unilab.utils.checkpoint import (
 )
 
 if TYPE_CHECKING:
-    from unilab.utils.nan_guard import NanGuardCfg
+    from uni_rl.utils.nan_guard import NanGuardCfg
 
 
 def build_run_dir_name(timestamp: str, sim_backend: str, *, world_size: int = 1) -> str:
@@ -78,7 +78,7 @@ def resolve_nan_guard_cfg(training_cfg: Any) -> NanGuardCfg | None:
     nan_guard_cfg = getattr(training_cfg, "nan_guard", None)
     if nan_guard_cfg is None or not getattr(nan_guard_cfg, "enabled", False):
         return None
-    from unilab.utils.nan_guard import NanGuardCfg
+    from uni_rl.utils.nan_guard import NanGuardCfg
 
     return NanGuardCfg(
         enabled=True,
@@ -93,7 +93,7 @@ def apply_env_nan_guard(env: Any, training_cfg: Any) -> None:
     nan_guard_cfg = resolve_nan_guard_cfg(training_cfg)
     if nan_guard_cfg is None:
         return
-    from unilab.utils.nan_guard import NanGuard
+    from uni_rl.utils.nan_guard import NanGuard
 
     env.set_nan_guard(
         NanGuard(

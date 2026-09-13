@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import numpy as np
 import pytest
+from uni_rl.env_contract import get_algo_capabilities
 from unisim.backend.base import DebugPrimitive, SimBackend
 
 import unilab.envs.manager_based_rl_env as manager_env_module
@@ -455,6 +456,19 @@ def _make_env(
         num_envs,
     )
     return env, backend
+
+
+def test_nonjoint_action_does_not_claim_joint_metadata() -> None:
+    env, _ = _make_env()
+    try:
+        capabilities = get_algo_capabilities(env)
+        assert capabilities.joint_names is None
+        np.testing.assert_array_equal(capabilities.action_low, [-np.inf])
+        np.testing.assert_array_equal(capabilities.action_high, [np.inf])
+        capabilities.action_low[:] = 0
+        np.testing.assert_array_equal(get_algo_capabilities(env).action_low, [-np.inf])
+    finally:
+        env.close()
 
 
 def test_training_progress_restore_survives_next_step_and_rejects_invalid_state():

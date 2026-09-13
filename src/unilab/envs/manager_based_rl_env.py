@@ -14,6 +14,7 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+from uni_rl.env_contract import EnvAlgoCapabilities
 from unisim.backend.base import DebugOverlayGetter, DebugPrimitive, SimBackend
 
 from unilab.base.backend_factory import create_backend, env_backend_kwargs
@@ -310,6 +311,28 @@ class ManagerBasedRlEnv(NpEnv):
             high=np.inf,
             shape=(self.action_manager.total_action_dim,),
             dtype=get_global_dtype(),
+        )
+
+    @property
+    def algo_capabilities(self) -> EnvAlgoCapabilities:
+        """Expose resolved joint action order, never infer it from scene order."""
+        from unilab.envs.mdp.actions.actions import BaseAction
+
+        names: list[str] = []
+        joint_names = None
+        for name in self.action_manager.active_terms:
+            term = self.action_manager.get_term(name)
+            if not isinstance(term, BaseAction):
+                break
+            names.extend(term.target_names)
+        else:
+            if len(names) == len(set(names)):
+                joint_names = tuple(names)
+        space = self.action_space
+        return EnvAlgoCapabilities(
+            action_low=space.low.copy(),
+            action_high=space.high.copy(),
+            joint_names=joint_names,
         )
 
     @property

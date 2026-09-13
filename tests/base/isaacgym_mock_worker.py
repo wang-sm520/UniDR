@@ -285,6 +285,7 @@ def main(argv: List[str]) -> int:
     def dispatch(cmd: str, payload: Any) -> Tuple[str, Any]:
         nonlocal sim
         if cmd == protocol.CMD_INIT:
+            protocol.validate_init(payload)
             if behavior == "fail_init":
                 raise RuntimeError("mock init failure")
             sim = _MockSim(
@@ -307,9 +308,24 @@ def main(argv: List[str]) -> int:
             keyframe_qpos = payload.get("keyframe_qpos")
             if keyframe_qpos is not None:
                 sim.apply_keyframe(keyframe_qpos, payload.get("mjcf_joint_names") or [])
-            return protocol.CMD_META, sim.meta(behavior)
+            metadata = sim.meta(behavior)
+            joint_order = [payload["mjcf_joint_names"].index(name) for name in sim.dof_names]
+            metadata.update(
+                protocol_version=protocol.PROTOCOL_VERSION,
+                supported_reset_terms=list(protocol.RESET_TERMS),
+                contact_reporter=(
+                    protocol.CONTACT_REPORTER_ISAACSIM
+                    if sim.startup_render_mode is not None
+                    else protocol.CONTACT_REPORTER_ISAACGYM
+                ),
+                nominal_body_mass=[1.0] * sim.num_bodies,
+                nominal_kp=[payload["dof_stiffness"][index] for index in joint_order],
+                nominal_kd=[payload["dof_damping"][index] for index in joint_order],
+            )
+            return protocol.CMD_META, metadata
         assert sim is not None
         if cmd == protocol.CMD_ATTACH:
+            protocol.validate_version(payload)
             sim.attach(payload["slots"])
             return protocol.CMD_READY, None
         if cmd == protocol.CMD_STEP:
@@ -330,6 +346,7 @@ def main(argv: List[str]) -> int:
                 }
             }
         if cmd == protocol.CMD_SET_STATE:
+            protocol.read_reset(payload, sim.slots, sim.num_envs, sim.num_dof, sim.num_bodies)
             sim.set_state(int(payload["count"]))
             return protocol.CMD_READY, {
                 "timing": {

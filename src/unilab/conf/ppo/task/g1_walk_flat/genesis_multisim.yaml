@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /task/g1_walk_flat/multisim_base
+  - _self_
+
+training:
+  sim_backend: genesis
+env:
+  genesis_device_id: 0
+  genesis_integrator: implicitfast
