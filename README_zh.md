@@ -6,6 +6,13 @@
 
 <p align="center">语言：简体中文 | <a href="README.md">English</a></p>
 
+## UniDR 训练快照
+
+本分支包含 G1 四仿真器 PPO 实验、[vendor/ 中的两个修改版依赖](vendor/README.md)，
+以及[完成 10,000 轮训练的最终 checkpoint](checkpoints/g1_walk_flat_multisim_10000/README.md)。
+单仓安装和确定性 MuJoCo 评估命令见 checkpoint 页面。下方保留上游 UniLab 介绍；
+本次上传是源码与策略快照，不是 PyPI 发版。
+
 <p align="center">
   <a href="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml"><img src="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://unilabsim.github.io"><img src="https://img.shields.io/badge/project-page-brightgreen" alt="Project Page"></a>

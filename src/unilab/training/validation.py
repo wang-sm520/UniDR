@@ -47,10 +47,15 @@ def _command(arguments: list[str], *, cwd: Path = _ROOT, timeout: float = 30) ->
         return {"command": arguments, "returncode": -1, "stdout": "", "stderr": str(error)}
 
 
+def _dependency_root(name: str) -> Path:
+    bundled = _ROOT / "vendor" / name
+    return bundled if bundled.is_dir() else _ROOT.parent / name
+
+
 def source_revision_evidence() -> dict[str, Any]:
     """Fingerprint local development sources without rewriting any repository."""
     evidence = {}
-    for repository in (_ROOT, _ROOT.parent / "unilab_rl", _ROOT.parent / "unisim"):
+    for repository in (_ROOT, _dependency_root("unilab_rl"), _dependency_root("unisim")):
         revision = _command(["git", "rev-parse", "HEAD"], cwd=repository)
         patch = _command(["git", "diff", "HEAD", "--", "src", "tests"], cwd=repository)
         untracked = _command(
@@ -191,7 +196,7 @@ def collect_preflight() -> dict[str, Any]:
         spec = importlib.util.find_spec(package)
         origin = None if spec is None else spec.origin
         modules[package] = origin
-        expected = _ROOT.parent / repository / "src" / package
+        expected = _dependency_root(repository) / "src" / package
         if origin is None or not Path(origin).resolve().is_relative_to(expected):
             reasons.append(f"{package} must resolve to its editable development repository")
     kernel_version = Path("/proc/driver/nvidia/version")
@@ -410,8 +415,15 @@ def _execute_gate(stage: str, output_root: Path) -> dict[str, Any]:
                         f"--junitxml={native_junit}",
                     ],
                     directory / f"{backend}-native.log",
-                    extra_env={"UNILAB_RUN_MULTISIM_PHYSICS": "1", "UNISIM_ISAAC_READBACK": "1"},
-                    cwd=_ROOT.parent / "unisim",
+                    extra_env={
+                        "UNILAB_RUN_MULTISIM_PHYSICS": "1",
+                        "UNISIM_ISAAC_READBACK": "1",
+                        "UNILAB_G1_SCENE": os.environ.get(
+                            "UNILAB_G1_SCENE",
+                            str(_ROOT / "src/unilab/assets/robots/g1/scene_flat.xml"),
+                        ),
+                    },
+                    cwd=_dependency_root("unisim"),
                 )
                 results[backend] = {
                     "effect_tests": effect_tests,

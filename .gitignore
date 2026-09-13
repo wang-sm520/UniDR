@@ -129,3 +129,6 @@ APPO_HARDWARE_TIMING_ANALYSIS.md
 
 # Training log artifacts (checkpoints, ONNX exports)
 log/
+
+!checkpoints/g1_walk_flat_multisim_10000/run_config.json
+!checkpoints/g1_walk_flat_multisim_10000/run_summary.json

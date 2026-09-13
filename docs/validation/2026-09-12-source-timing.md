@@ -49,11 +49,11 @@ UniLab:
 
 unilab_rl:
 
-- `src/uni_rl/algos/rsl_rl_source_timing.py`: reusable logger adapter using public
+- `vendor/unilab_rl/src/uni_rl/algos/rsl_rl_source_timing.py`: reusable logger adapter using public
   source statistics, without importing UniLab or unisim.
-- `tests/algos/test_rsl_rl_source_timing.py`: deterministic aggregation, writer
+- `vendor/unilab_rl/tests/algos/test_rsl_rl_source_timing.py`: deterministic aggregation, writer
   delegation, signed sub-timers, missing steps, failure restoration, no overwrite.
-- `tests/ipc/test_multi_source_ppo.py`: real spawn and stock PPO integration,
+- `vendor/unilab_rl/tests/ipc/test_multi_source_ppo.py`: real spawn and stock PPO integration,
   including bounded validation, timeout handling, epoch quotas and checkpoints.
 
 unisim: no changes in this timing task. Pre-existing dirty changes in all three

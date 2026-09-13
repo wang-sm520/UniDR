@@ -7,6 +7,12 @@
 架构决定见 `docs/sphinx/source/adr/ADR-0010-synchronous-multi-source-training.md`。
 已有 `docs/research/` 不属于本次交付的修改范围。
 
+UniDR 单仓快照将两个修改版依赖放在 `vendor/`，通过根目录 `uv.lock` 与
+editable source 配置安装；无需另行克隆兄弟仓库。见
+[依赖来源与安装](../vendor/README.md)和
+[最终 checkpoint 与评估命令](../checkpoints/g1_walk_flat_multisim_10000/README.md)。
+下文三仓路径保留为原始开发记录；单仓的验收入口优先检查 `vendor/` 路径。
+
 ManagerBasedRlEnv 通过既有 `algo_capabilities` 协议提供原始动作空间边界和
 按 ActionManager 执行顺序拼接的关节名称。名称来自已解析 Joint action 的
 `target_names`，不是从场景配置猜测；非关节 action 或重复名称不声明该字段。

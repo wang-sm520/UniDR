@@ -1,0 +1,30 @@
+<mujoco model="isaac_reset">
+  <compiler angle="radian"/>
+  <option timestep="0.002"/>
+  <worldbody>
+    <geom name="floor" type="plane" size="20 20 0.1"/>
+    <body name="base" pos="0 0 1">
+      <freejoint/>
+      <geom name="base_geom" type="box" size="0.12 0.12 0.12" mass="5"/>
+      <body name="leg" pos="0.3 0 0">
+        <joint name="hip" type="slide" axis="1 0 0" range="-2 2"/>
+        <geom name="leg_geom" type="box" size="0.1 0.1 0.1" mass="2"/>
+        <body name="foot" pos="0 0.3 0">
+          <joint name="knee" type="slide" axis="0 1 0" range="-2 2"/>
+          <geom name="foot_geom" type="box" size="0.1 0.1 0.1" mass="3"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="hip_drive" joint="hip" kp="20" kv="2" ctrllimited="true"
+              ctrlrange="-1 1" forcelimited="true" forcerange="-100 100"/>
+    <position name="knee_drive" joint="knee" kp="10" kv="1" ctrllimited="true"
+              ctrlrange="-1 1" forcelimited="true" forcerange="-100 100"/>
+  </actuator>
+  <sensor>
+    <contact name="base_contact" geom1="base_geom" data="found"/>
+    <contact name="foot_contact" geom1="foot_geom" data="found"/>
+  </sensor>
+  <keyframe><key name="init" qpos="0 0 1 1 0 0 0 0 0"/></keyframe>
+</mujoco>

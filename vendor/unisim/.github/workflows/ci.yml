@@ -1,0 +1,81 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        if: runner.os == 'Windows'
+      - name: Install locked core environment
+        run: uv sync --locked
+      - name: Install MuJoCo adapter test extra
+        if: runner.os != 'Windows'
+        run: uv sync --locked --extra mujoco
+      - name: Lint
+        run: uv run ruff check .
+      - name: Test complete suite
+        if: runner.os != 'Windows'
+        run: uv run pytest -q
+      - name: Test core suite on Windows
+        if: runner.os == 'Windows'
+        run: >-
+          uv run pytest -q tests/test_contract.py
+          tests/test_import_boundary.py::test_import_does_not_pull_unilab_or_engine_modules
+          tests/test_package_boundary.py tests/test_mjwarp_contract.py
+
+  package:
+    name: Build source distribution (pre-release)
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: false
+      - name: Build source distribution
+        run: uv build --sdist --out-dir dist
+      - name: Check source distribution metadata
+        run: uvx --from twine twine check dist/*
+      - name: Install the freshly built source distribution
+        run: |
+          uv venv .package-venv
+          uv pip install --python .package-venv/bin/python numpy
+          uv pip install --python .package-venv/bin/python --reinstall --no-deps \
+          --no-binary unisim-core --no-cache --find-links dist --no-index unisim-core
+      - name: Smoke test installed source distribution
+        run: >-
+          .package-venv/bin/python -c "import numpy as np; import unisim;
+          backend = unisim.create_backend('fake', num_envs=1, num_actuators=1);
+          backend.step(np.ones((1, 1)));
+          assert backend.get_state(('qpos',))['qpos'].shape == (1, 1)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error

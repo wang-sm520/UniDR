@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "source_run": "20260912_205814_multisim_10000",
+  "checkpoint_iteration_zero_based": 9999,
+  "completed_updates": 10000,
+  "total_transitions": 1920000000,
+  "task": "G1WalkFlat",
+  "source_order": [
+    "isaacgym",
+    "isaacsim",
+    "motrix",
+    "genesis"
+  ],
+  "source_fractions": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+  ],
+  "actor_observation_dim": 98,
+  "critic_observation_dim": 101,
+  "action_dim": 29,
+  "unilab_snapshot_before_bundling": "9c2d120d0484e5ce2d6d07590ae0543631faaed3",
+  "dependencies_manifest": "../../vendor/manifest.json",
+  "artifacts": {
+    "model_9999.pt": {
+      "sha256": "2d5414d5af4e21626d4bb77c9f32f62a339cf35524dce8a48739668b7a7e647a",
+      "bytes": 5243829
+    },
+    "run_config.json": {
+      "sha256": "206c4a66474c7ab800d08bd66c5778a54dcf5c2ed3818e14ff9de1f743f00ca6",
+      "bytes": 141956
+    },
+    "run_summary.json": {
+      "sha256": "1fdbfa89d486b72c790b1a830005e66e50dec00d32cb4031e973410449c9b6cf",
+      "bytes": 1002
+    },
+    "mujoco_evaluation.json": {
+      "sha256": "512bc2955e275362fc812a205e897d35444f9d377f522e8fafb320342dc23310",
+      "bytes": 47198
+    }
+  }
+}

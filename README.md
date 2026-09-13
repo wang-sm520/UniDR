@@ -6,6 +6,13 @@ Contract-driven infrastructure for robot learning across physics backends and ha
 
 <p align="center">Languages: English | <a href="README_zh.md">简体中文</a></p>
 
+## UniDR Training Snapshot
+
+This fork includes the G1 four-simulator PPO experiment, both modified dependencies
+in [vendor/](vendor/README.md), and the [final 10,000-update checkpoint](checkpoints/g1_walk_flat_multisim_10000/README.md).
+See the checkpoint page for single-repository setup and deterministic MuJoCo evaluation.
+The upstream UniLab overview follows below; this source snapshot is not a PyPI release.
+
 <p align="center">
   <a href="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml"><img src="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://unilabsim.github.io"><img src="https://img.shields.io/badge/project-page-brightgreen" alt="Project Page"></a>

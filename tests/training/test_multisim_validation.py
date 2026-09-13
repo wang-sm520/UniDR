@@ -1,12 +1,99 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from types import SimpleNamespace
 
 import pytest
 from omegaconf import OmegaConf
 
 from unilab.training import validation
+
+
+@pytest.mark.parametrize("name", ["unilab_rl", "unisim"])
+def test_dependency_root_prefers_bundle_and_preserves_sibling_fallback(tmp_path, monkeypatch, name):
+    root = tmp_path / "UniDR"
+    monkeypatch.setattr(validation, "_ROOT", root)
+    assert validation._dependency_root(name) == tmp_path / name
+    bundled = root / "vendor" / name
+    bundled.mkdir(parents=True)
+    assert validation._dependency_root(name) == bundled
+
+
+def test_source_revision_tracks_each_vendored_source_tree(tmp_path, monkeypatch):
+    root = tmp_path / "UniDR"
+    roots = [root, root / "vendor/unilab_rl", root / "vendor/unisim"]
+    for source in roots:
+        (source / "src").mkdir(parents=True)
+        (source / "src/example.py").write_text("value = 1\n")
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        check=True,
+    )
+    monkeypatch.setattr(validation, "_ROOT", root)
+    baseline = validation.source_revision_evidence()
+    assert set(baseline) == {"UniDR", "unilab_rl", "unisim"}
+    assert len({entry["base"] for entry in baseline.values()}) == 1
+    (roots[1] / "src/example.py").write_text("value = 2\n")
+    modified = validation.source_revision_evidence()
+    assert modified["unilab_rl"] != baseline["unilab_rl"]
+    assert modified["unisim"] == baseline["unisim"]
+    assert modified["UniDR"] == baseline["UniDR"]
+    (roots[2] / "src/additional.py").write_text("value = 3\n")
+    untracked = validation.source_revision_evidence()
+    assert untracked["unisim"] != modified["unisim"]
+    assert untracked["unilab_rl"] == modified["unilab_rl"]
+
+
+@pytest.mark.parametrize("configured_scene", [None, "/configured/g1.xml"])
+def test_native_physics_checks_run_from_vendored_dependency(
+    tmp_path, monkeypatch, configured_scene
+):
+    root = tmp_path / "UniDR"
+    bundled = root / "vendor/unisim"
+    bundled.mkdir(parents=True)
+    monkeypatch.setattr(validation, "_ROOT", root)
+    monkeypatch.setattr(validation, "source_revision_evidence", lambda: {})
+    if configured_scene is None:
+        monkeypatch.delenv("UNILAB_G1_SCENE", raising=False)
+    else:
+        monkeypatch.setenv("UNILAB_G1_SCENE", configured_scene)
+    native_directories = []
+    native_scenes = []
+
+    def run(command, logfile, **kwargs):
+        from pathlib import Path
+
+        target = next(
+            value.partition("=")[2] for value in command if value.startswith("--junitxml=")
+        )
+        logfile.parent.mkdir(parents=True, exist_ok=True)
+        Path(target).write_text("<testsuites><testsuite><testcase /></testsuite></testsuites>")
+        if "cwd" in kwargs:
+            native_directories.append(kwargs["cwd"])
+            native_scenes.append(kwargs["extra_env"]["UNILAB_G1_SCENE"])
+
+    monkeypatch.setattr(validation, "_run_logged", run)
+    validation._execute_gate("physics", tmp_path / "reports")
+    assert native_directories == [bundled] * 4
+    assert (
+        native_scenes
+        == [configured_scene or str(root / "src/unilab/assets/robots/g1/scene_flat.xml")] * 4
+    )
 
 
 def test_memory_snapshot_includes_current_process():
