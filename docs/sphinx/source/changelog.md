@@ -13,6 +13,81 @@ UniLab 遵循[语义化版本](https://semver.org/)。本共享页面以中英�
 
 ## Unreleased / 未发布
 
+- Add task-owned fixed model/tool variants and per-env playback support through
+  the UniSim construction-time plan contract. A deterministic representative
+  SimToolReal mesh workload covers CPU and MJWarp rollout parity, reset-time
+  mass/inertia DR, and one PPO learning iteration. The `mujoco` extra now uses
+  the published `mjbatch-uni~=0.2.0` executor API.
+  新增 task-owned fixed model/tool variants，并通过 UniSim construction-time
+  plan contract 支持 per-env playback。确定性 SimToolReal mesh 代表性工作负载
+  覆盖 CPU/MJWarp rollout parity、reset-time mass/inertia DR 与一次 PPO learning
+  iteration。`mujoco` extra 改用已发布的 `mjbatch-uni~=0.2.0` executor API。
+
+- Retire the legacy DomainRandomization provider protocol (roadmap
+  [#1563](https://github.com/Motphys/UniLab/issues/1563),
+  [#1567](https://github.com/Motphys/UniLab/issues/1567)).
+  `DomainRandomizationProvider`, `DomainRandomizationManager`, their NpEnv
+  hooks, and the provider-side payload helper are removed. Manager-Based event
+  terms are the sole DR lifecycle: fixed model identity is construction-time,
+  reset terms commit through `ResetStateTransaction`, and interval terms use the
+  public UniSim plan contract. The `unilab.dr` namespace, `env.domain_rand`
+  sim2sim allowlist entry, and provider documentation are removed; callers use
+  the backend-owned `unisim.dr` types directly.
+  移除 legacy DomainRandomization provider 协议（roadmap #1563、#1567）。
+  `DomainRandomizationProvider`、`DomainRandomizationManager`、NpEnv hooks 和
+  provider 侧 payload helper 已删除。Manager-Based event term 成为唯一 DR
+  lifecycle：固定模型 identity 位于 construction-time，reset term 通过
+  `ResetStateTransaction` 提交，interval term 使用公开 UniSim plan contract。
+  `unilab.dr` namespace、`env.domain_rand` sim2sim allowlist 与 provider 文档
+  均已移除；调用方直接使用 backend-owned `unisim.dr` 类型。
+
+- Replace the `mujoco-uni-runtime` dependency (`mujoco_uni` import) with the
+  `mjbatch` native batch engine across the repository (roadmap
+  [#1552](https://github.com/unilabsim/UniLab/issues/1552),
+  [#1553](https://github.com/unilabsim/UniLab/issues/1553)). The `mujoco`
+  extra now installs `mujoco~=3.11.0` plus the published
+  [mjbatch-uni](https://github.com/unilabsim/mjbatch-uni) 0.2.x line. The
+  `sim=mujoco` CLI runtime check now gates
+  on the `mjbatch` module. A post-swap ablation slimmed the pinned fork's
+  API ([#1557](https://github.com/unilabsim/UniLab/issues/1557)): the
+  per-substep callback is `fn(k, state, ctrl)` (no `callback_sensordata`
+  argument), `steps_done` / `stop_on_warning` are gone, and the hfield
+  scanner is height-only with its own validation. Numerical equivalence
+  before and after the swap is **not** guaranteed; the accepted drift is
+  characterized by the #1554 drift baseline.
+  全仓库将 `mujoco-uni-runtime` 依赖（`mujoco_uni` 导入）替换为 `mjbatch`
+  原生 batch 引擎（roadmap #1552、#1553）。`mujoco` extra 现安装
+  `mujoco~=3.11.0` 与已发布的
+  [mjbatch-uni](https://github.com/unilabsim/mjbatch-uni) 0.2.x。
+  `sim=mujoco` 的 CLI 运行时检查改为检查
+  `mjbatch` 模块。替换后的消融精简了钉住 fork 的 API（#1557）：per-substep
+  回调为 `fn(k, state, ctrl)`（不再有 `callback_sensordata` 参数），
+  `steps_done` / `stop_on_warning` 已移除，hfield 扫描器只输出高度并自带
+  校验。替换前后数值不保证一致；接受的漂移由 #1554 漂移基线表征。
+
+- Deprecate and remove the MuJoCo chunk/forward knobs: `EnvCfg` fields
+  `post_step_forward_sensor`, `adaptive_chunk_size`, and `chunk_size`, the
+  `bench_nsteps` backend kwarg, the matching Hydra owner keys, and the
+  `make mujoco MJ=<version>` / `check-cxx-toolchain` / `setup-mujoco` Makefile
+  targets are gone. `mjbatch` schedules per-simulation work without a chunk
+  knob, and step ends one substep behind the state by default, matching the
+  previous `post_step_forward_sensor=False` semantics; the per-env model
+  variant machinery (`ModelVariantSpec` materialization on the MuJoCo backend)
+  is no longer supported there — init-lifecycle geometry overrides move to the
+  remaining variant-capable backends. Windows support is unchanged: the
+  MuJoCo physics backend stays Linux/macOS-only because `mjbatch` ships no
+  Windows wheels.
+  弃用并移除 MuJoCo chunk/forward 旋钮：`EnvCfg` 字段
+  `post_step_forward_sensor`、`adaptive_chunk_size`、`chunk_size`、`bench_nsteps`
+  后端 kwarg、对应的 Hydra owner 键，以及 Makefile 目标
+  `make mujoco MJ=<version>` / `check-cxx-toolchain` / `setup-mujoco` 均已删除。
+  `mjbatch` 在没有 chunk 旋钮的情况下调度 per-simulation 工作，且 sensordata
+  默认落后一个子步，与之前的 `post_step_forward_sensor=False` 语义一致；
+  MuJoCo 后端不再支持 per-env 模型 variants（`ModelVariantSpec`
+  materialization）——init-lifecycle 几何覆盖改由仍支持 variants 的后端提供。
+  Windows 支持不变：由于 `mjbatch` 不提供 Windows wheel，MuJoCo 物理后端
+  仍然只支持 Linux/macOS。
+
 ## 1.2.0 (2026-09-10)
 
 - Update the required `unisim-core` release to `>=1.2.0` and the pinned

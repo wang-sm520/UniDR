@@ -9,14 +9,12 @@ from typing import cast
 
 import numpy as np
 import pytest
-from uni_rl.env_contract import get_algo_capabilities
 from unisim.backend.base import SimBackend
 
 from unilab.assets import ASSETS_ROOT_PATH
 from unilab.base.backend_factory import create_backend
 from unilab.base.entity import EntityCfg, EntityScene
 from unilab.base.scene import SceneCfg
-from unilab.envs.manager_based_rl_env import ManagerBasedRlEnv as ConcreteManagerEnv
 from unilab.envs.mdp import (
     JointEffortAction,
     JointEffortActionCfg,
@@ -34,7 +32,6 @@ from unilab.envs.mdp.actions import (
     JointPositionActionCfg as ExportedJointPositionActionCfg,
 )
 from unilab.managers._types import ManagerBasedRlEnv
-from unilab.managers.action_manager import ActionManager
 
 
 class _Backend:
@@ -108,24 +105,6 @@ def _build_action(action_cfg_type, **overrides):
 def test_public_exports_are_canonical_objects() -> None:
     assert JointPositionAction is ExportedJointPositionAction
     assert JointPositionActionCfg is ExportedJointPositionActionCfg
-
-
-@pytest.mark.parametrize("duplicate", [False, True])
-def test_algorithm_joint_metadata_follows_resolved_action_terms(duplicate: bool) -> None:
-    first, _, _ = _action(actuator_names=("ankle",))
-    second, _, _ = _action(actuator_names=("ankle" if duplicate else "hip|knee",))
-    terms = {"first": first, "second": second}
-    env = ConcreteManagerEnv.__new__(ConcreteManagerEnv)
-    env.action_manager = cast(
-        ActionManager,
-        SimpleNamespace(
-            active_terms=list(terms),
-            get_term=terms.__getitem__,
-            total_action_dim=sum(term.action_dim for term in terms.values()),
-        ),
-    )
-    expected = None if duplicate else ("ankle", "hip", "knee")
-    assert get_algo_capabilities(env).joint_names == expected
 
 
 def test_default_offset_encoder_bias_and_control_order() -> None:
@@ -238,6 +217,11 @@ def test_relative_joint_position_action_rejects_nonzero_offsets() -> None:
 def test_go2_joint_targets_are_mapped_to_backend_control_order(backend_type: str) -> None:
     if backend_type == "motrix":
         pytest.importorskip("motrixsim")
+    else:
+        pytest.importorskip(
+            "unisim.backend.mujoco.backend",
+            reason="unisim-core MuJoCo adapter (mjbatch build) not available",
+        )
     joint_names = (
         "FL_hip_joint",
         "FL_thigh_joint",

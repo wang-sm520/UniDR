@@ -59,13 +59,6 @@ from unilab.training.experiment import (
     patch_rsl_rl_resume_state,
     patch_rsl_rl_wandb_writer,
 )
-from unilab.training.multi_source import (
-    build_multi_source_plan,
-    create_multi_source_training_env,
-    is_multi_source,
-    source_timing_context,
-    validate_multi_source_topology,
-)
 from unilab.utils.checkpoint import get_entrypoint_log_root
 from unilab.utils.device import get_default_device
 from unilab.utils.seed import apply_configured_training_seed
@@ -104,7 +97,6 @@ def build_ppo_env_cfg_override(cfg: DictConfig) -> dict[str, Any]:
     local_rank = current_torch_distributed_local_rank()
     world_size = current_torch_distributed_world_size()
     configured_device = OmegaConf.select(cfg, "training.device", default=None)
-
     learner_device = (
         f"cuda:{local_rank}"
         if world_size > 1
@@ -474,11 +466,6 @@ def main(cfg: DictConfig) -> None:
     world_size = current_torch_distributed_world_size()
     configured_device = OmegaConf.select(cfg, "training.device", default=None)
 
-    validate_multi_source_topology(cfg, world_size=world_size, devices=devices)
-    from unilab.training.validation import validate_acceptance_request
-
-    validate_acceptance_request(cfg)
-
     if configured_device is not None and devices is not None:
         raise ValueError("Set either training.device or training.devices, not both")
     if rank < 0 or rank >= world_size:
@@ -587,19 +574,6 @@ def main(cfg: DictConfig) -> None:
     )
     seed_info = apply_configured_training_seed(cfg, torch_runtime=True, cuda=True)
 
-    if OmegaConf.select(cfg, "training.evaluation.enabled", default=False):
-        if not cfg.training.play_only or world_size != 1:
-            raise ValueError("Metrics evaluation requires single-process play-only execution")
-        from unilab.training.evaluation import run_ppo_metrics_evaluation
-
-        report = run_ppo_metrics_evaluation(cfg, device=device, root_dir=Path.cwd())
-        print(f"Metrics evaluation report: {report}")
-        return
-
-    source_plan = (
-        build_multi_source_plan(cfg, root_dir=Path.cwd()) if is_multi_source(cfg) else None
-    )
-
     # Compute effective max_iterations (supports num_timesteps override)
     max_iterations = cfg.algo.max_iterations
     if cfg.training.num_timesteps:
@@ -631,9 +605,6 @@ def main(cfg: DictConfig) -> None:
             full_cfg=cfg,
             device=device,
             seed_info=seed_info,
-            extra_metadata={"multi_source": source_plan.manifest}
-            if source_plan is not None
-            else None,
         )
         tracker.start()
 
@@ -643,14 +614,10 @@ def main(cfg: DictConfig) -> None:
     try:
         try:
             if not cfg.training.play_only:
-                env = (
-                    create_multi_source_training_env(source_plan)
-                    if source_plan is not None
-                    else create_env(
-                        cfg,
-                        num_envs=cfg.algo.num_envs,
-                        env_cfg_override=env_cfg_override,
-                    )
+                env = create_env(
+                    cfg,
+                    num_envs=cfg.algo.num_envs,
+                    env_cfg_override=env_cfg_override,
                 )
                 try:
                     rl_cfg = algo_config_dict(cfg)
@@ -709,18 +676,11 @@ def main(cfg: DictConfig) -> None:
                     initial_timesteps = int(getattr(runner.logger, "tot_timesteps", 0))
                     initial_training_time = float(getattr(runner.logger, "tot_time", 0.0))
                     train_start_wall = time.time()
-                    acceptance_result = None
                     try:
-                        with source_timing_context(cfg, runner, env, log_dir=log_dir):
-                            if OmegaConf.select(cfg, "training.validation.gate") is not None:
-                                from unilab.training.validation import run_ppo_acceptance
-
-                                acceptance_result = run_ppo_acceptance(cfg, runner, env)
-                            else:
-                                runner.learn(
-                                    num_learning_iterations=max_iterations,
-                                    init_at_random_ep_len=True,
-                                )
+                        runner.learn(
+                            num_learning_iterations=max_iterations,
+                            init_at_random_ep_len=True,
+                        )
                     except RunComplete as completion:
                         if world_size != 1:
                             raise RuntimeError(
@@ -771,10 +731,6 @@ def main(cfg: DictConfig) -> None:
                             ),
                             "training_wall_time_sec": time.time() - train_start_wall,
                         }
-                        if acceptance_result is not None:
-                            pending_summary["acceptance"] = acceptance_result
-                            pending_summary["completed_iterations"] = acceptance_result["updates"]
-                            pending_summary["last_checkpoint"] = acceptance_result["checkpoint"]
                 finally:
                     env.close()
                 if run_completion is not None:

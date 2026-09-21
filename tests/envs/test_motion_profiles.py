@@ -153,7 +153,6 @@ _LEGACY_G1_ACTION_SCALE = (
 )
 
 _LEGACY_SCALAR_ACTION_SCALE = {
-    ("ppo", "g1_flip_tracking", "motrix"): 0.25,
     ("ppo", "g1_23dof_flip_tracking", "motrix"): 0.25,
     ("appo", "g1_wall_flip_tracking", "motrix"): 0.25,
     ("appo", "g1_23dof_wall_flip_tracking", "motrix"): 0.25,
@@ -319,11 +318,13 @@ def test_appo_profiles_preserve_training_owner_contract(
     assert owner.training.replay_queue_size == replay_queue_size
 
 
-@pytest.mark.parametrize("task", ("g1_flip_tracking", "g1_23dof_flip_tracking"))
-def test_ppo_motrix_flip_profiles_keep_actor_normalization_disabled(task: str) -> None:
+@pytest.mark.parametrize(
+    ("task", "normalize"), (("g1_flip_tracking", True), ("g1_23dof_flip_tracking", False))
+)
+def test_ppo_motrix_flip_profiles_actor_normalization(task: str, normalize: bool) -> None:
     owner = _compose_owner("ppo", task, "motrix")
 
-    assert owner.algo.empirical_normalization is False
+    assert owner.algo.empirical_normalization is normalize
     assert owner.algo.obs_groups.actor == ["actor"]
     assert owner.algo.obs_groups.critic == ["critic"]
 
@@ -352,14 +353,17 @@ def test_box_motrix_drops_unconsumed_algorithm_noise_config(task: str) -> None:
     assert "noise_config" not in owner.algo
 
 
-def test_all_motion_profiles_have_one_manager_factory_and_both_backends() -> None:
+def test_all_motion_profiles_have_one_manager_factory_and_declared_backends() -> None:
     registry.ensure_registries()
     metadata = registry.list_registered_envs()
 
     for identity in _PROFILE_IDENTITIES:
+        backends = ["mujoco", "motrix"]
+        if identity == "G1FlipTracking":
+            backends += ["isaacsim", "isaacgym", "genesis"]
         assert metadata[identity] == {
             "config_factory": "ManagerBasedRlEnvCfg",
-            "available_backends": ["mujoco", "motrix"],
+            "available_backends": backends,
         }
 
 
@@ -508,10 +512,11 @@ def test_representative_motion_profiles_reset_and_step(
 ) -> None:
     if backend == "mujoco":
         pytest.importorskip("mujoco")
-        try:
-            from mujoco_uni.batch_env import BatchEnvPool as _  # noqa: F401
-        except Exception:
-            pytest.skip("mujoco_uni.batch_env not available")
+        pytest.importorskip("mjbatch", reason="mjbatch not installed")
+        pytest.importorskip(
+            "unisim.backend.mujoco.backend",
+            reason="unisim-core MuJoCo adapter (mjbatch build) not available",
+        )
     else:
         pytest.importorskip("motrixsim")
 

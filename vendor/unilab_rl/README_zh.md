@@ -84,15 +84,6 @@ env contract 是一个最小化的、基于 numpy 的自动 reset 向量化环�
 docstring；如何不 fork 本仓库、通过 `runtime_resolver` 接入自定义算法，
 见 [`AGENTS.md`](AGENTS.md) 的「新算法扩展方式」一节。
 
-### 同步多来源环境
-
-`uni_rl.ipc.multi_source_env.make_multi_source_env` 将具名的
-`EnvSourceSpec` 工厂组合为单个 `EnvProtocol`，使用固定来源切片、spawn
-worker、双缓冲共享内存、严格序号屏障及失败后整体关闭语义。日志按来源命名，
-并提供只读的来源调用次数、耗时、PID 与 RSS 统计；后端、任务、数量和设备绑定
-仍由调用方决定。详见[公开接口与支持的数据格式](docs/multi_source_env.md)，
-包括初始化、reset、NaN guard、超时和 Linux 进程组清理约定。
-
 ## 设计契约
 
 `uni_rl` **不**依赖任何仿真器或环境库。算法行为归属 `uni_rl.algos.*`

@@ -5,6 +5,16 @@ from pathlib import Path
 from tests.scripts import doc_checks
 
 
+def test_file_path_links_check_valid_and_missing_targets(tmp_path):
+    for prefix in ("src", "conf", "tests"):
+        (tmp_path / prefix).mkdir()
+        valid = f"[owner]({prefix}/)"
+        assert doc_checks.check_file_paths(valid, tmp_path / "README.md", tmp_path) == []
+        invalid = f"[missing]({prefix}/absent.py)"
+        errors = doc_checks.check_file_paths(invalid, tmp_path / "README.md", tmp_path)
+        assert len(errors) == 1 and f"{prefix}/absent.py" in errors[0]
+
+
 def test_documentation_files_match_current_repo_contracts():
     root = Path(__file__).resolve().parents[2]
     errors = doc_checks.collect_doc_errors(root)

@@ -1,63 +1,84 @@
-# Bundled Development Dependencies
+# Bundled G1 Flip Dependencies
 
-UniDR keeps the modified `unilab_rl` and `unisim` source trees in this one Git
-repository, as requested for the G1 multisim training snapshot. They remain
-separate Python distributions with their original module and ownership boundaries:
+UniDR includes the modified runtime and physics adapters required by its
+G1FlipTracking experiments. They remain separate Python distributions; the
+runtime does not import UniLab or UniSim.
 
 | Directory | Distribution | Import | Responsibility |
 | --- | --- | --- | --- |
-| `unilab_rl/` | `unilab-rl` | `uni_rl` | Learners, runners, collection, IPC, training logs |
-| `unisim/` | `unisim-core` | `unisim` | Backend adapters, physics contracts, Isaac subprocess workers |
+| [unilab_rl](unilab_rl) | `unilab-rl` | `uni_rl` | PPO, collection, storage, IPC, probes, allocation, logs and recovery |
+| [unisim](unisim) | `unisim-core` | `unisim` | Physics adapters, backend contracts and Isaac subprocess workers |
 
-Each directory contains the source repository's tracked files plus its current
-non-ignored working-tree additions, including tests, documentation, LICENSE,
-AGENTS.md, packaging configuration, and its development lockfile. Nested `.git`
-directories, virtual environments, cached/downloaded assets, proprietary Isaac
-SDKs, and generated outputs are not included. The original repositories outside
-UniDR were neither changed nor pushed. Nested GitHub workflows are preserved as
-source files; only root `.github/workflows/` files are active workflows in UniDR.
+The source snapshots include their tests, documentation, LICENSE, AGENTS.md,
+packaging metadata and standalone lockfiles. They do not include nested Git
+repositories, virtual environments, robot meshes, motion downloads or external
+Isaac SDKs. Nested GitHub workflow files are preserved source; only the root
+`.github/workflows/` directory defines workflows for this GitHub repository.
 
-`manifest.json` records upstream URLs, baseline commits, original working-tree
-status, and the SHA256 of each copied file. It identifies the current development
-snapshot, not an assertion that every file was loaded by the original training
-process. Subsequent vendor edits must update the recorded file hashes or be
-explicitly recorded as modifications to this snapshot.
+[manifest.json](manifest.json) records upstream baselines, original working-tree
+state and copied-file hashes. Baseline commits and unchanged package version
+numbers alone are insufficient to reproduce this modified source. Packaging
+edits and validation are documented in the
+[publication report](../docs/validation/unidr-flip-publication-2026-09-21.md).
+The original development checkouts and running experiments are not edited by
+this publication.
 
-## Installation
+## Root environment
 
-Run from the UniDR repository root with Python 3.11:
+Install from the UniDR root:
 
 ```bash
-uv sync --python 3.11 --locked --extra mujoco --extra motrix --extra genesis
+uv sync --python 3.10 --locked --extra mujoco --extra motrix --extra genesis
 uv run --no-sync python -c 'import uni_rl, unisim; print(uni_rl.__file__); print(unisim.__file__)'
 ```
 
-The root `pyproject.toml` and `uv.lock` select these directories as editable
-sources. The imported modules must resolve under `vendor/`, not to published
-1.2.0 distributions. Package versions are unchanged, so source hashes, not
-version numbers alone, identify the experiment implementation.
+Both imports must resolve inside this repository's `vendor/` directory. The
+root `pyproject.toml` and `uv.lock` select these packages as editable sources
+and preserve the experiment's RSL-RL **5.0.1**. A sync inside `vendor/unilab_rl`
+would instead select its separate development lock, which uses **5.5.0**.
+Do not substitute that environment when reproducing the root training workflow.
 
-For the Isaac subprocesses, expose the same source root explicitly:
+The root MuJoCo extra uses `mjbatch-uni`; the earlier historical bundle used
+`mujoco-uni-runtime`. Follow the current root lockfile rather than mixing those
+backend generations. Python 3.10 matches the measured root environment; the
+two Isaac SDK workers retain their separate Python 3.8 and Python 3.11
+environments. Native worker entrypoints are resolved from the imported UniSim
+source, so an additional sibling checkout is unnecessary.
+
+See the root [README](../README.md#installation-and-assets) for assets and
+`UNISIM_ISAACGYM_HOME` / `UNISIM_ISAACSIM_HOME` SDK discovery. No SDK install,
+driver change, release tag or PyPI publication is part of this source bundle.
+
+## Owner-specific checks
+
+The root Ruff configuration excludes `vendor/`; each owner must be checked
+separately with its own configuration. Reuse the root environment without
+resolving the standalone dependency locks:
 
 ```bash
-export UNILAB_LOCAL_UNISIM="$(pwd)/vendor/unisim"
+# Run from the UniDR root after the root sync above.
+export UV_PROJECT_ENVIRONMENT="$PWD/.venv"
+export UV_NO_SYNC=1
+make check
+make test
+
+(
+  cd vendor/unilab_rl
+  uv run --no-sync ruff check .
+  uv run --no-sync ruff format --check .
+  uv run --no-sync mypy src/uni_rl
+  uv run --no-sync pyright
+  uv run --no-sync pytest --cov=src/uni_rl
+)
+(
+  cd vendor/unisim
+  uv run --no-sync ruff check .
+  uv run --no-sync pytest -q
+)
 ```
 
-IsaacGym and IsaacSim still require their separately installed external Python
-runtimes. See [multisim setup](../docs/multisim_training.md) for those prerequisites.
-The acceptance driver now prefers these bundled roots while retaining the older
-sibling-repository layout when `vendor/` is absent. No physics gate is weakened.
-Native readback receives UniDR's G1 scene through the existing `UNILAB_G1_SCENE`
-option; an explicit user-provided scene value is preserved.
-
-## Validation
-
-Run dependency checks separately so the original owner lint/test configuration
-applies. The root Ruff configuration excludes `vendor/` to avoid rewriting
-snapshotted source during an unrelated root-format command. The root pytest
-suite also does not replace these independent suites.
-
-Use the root environment for each dependency's checks, with `UV_NO_SYNC=1`;
-running a fresh sync inside a vendor directory instead selects that package's
-standalone development environment and lockfile. No release tags or package
-publication are part of this source upload.
+Use `make test-all` at the root before a PR, as required by its agent guide.
+Native tests require their declared optional SDKs and explicit opt-in controls;
+a CPU/fake test does not establish four-engine physics support, adaptive
+capacity, four-GPU execution or policy quality. The publication report records
+actual results, including skipped tests and unresolved inherited failures.

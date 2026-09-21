@@ -1,42 +1,73 @@
 <h1 align="center"> UniDR </h1>
 
 <h3 align="center">
-Unified multi-simulator sampling and a shared PPO learner, built on UniLab
+G1 flip tracking with four simulators and one shared PPO learner
 </h3>
 
 <p align="center">Languages: English | <a href="README_zh.md">简体中文</a></p>
 
-## Current scope and source availability
+## Scope and source snapshot
 
 UniDR studies **simulator dynamics as a source of domain randomization**: how
 training across different physics engines changes sim2sim and sim2real transfer
-relative to a single engine. Current development targets **G1FlipTracking** with
-Isaac Sim, Isaac Gym, Genesis, and Motrix feeding one shared PPO learner. MuJoCo
-is reserved for fixed-model holdout evaluation; it does not supply training,
-online scores, tuning feedback, or checkpoint selection.
+relative to a single engine. The task is **G1FlipTracking**, trained with Isaac
+Sim, Isaac Gym, Genesis and Motrix. MuJoCo is reserved for fixed-model holdout
+evaluation; it supplies no training, online scores, tuning feedback or checkpoint
+selection. Development and experiments now focus on flip tracking.
 
-**September 21, 2026: this update publishes documentation only.** The `src/` and
-`vendor/` code in this GitHub repository still contains the September 13
-**G1WalkFlat** snapshot. The flip implementation, adaptive allocation, and recent
-Isaac Sim repair described below exist in the local development checkouts and
-have not been synchronized into this source snapshot. A fresh clone cannot run
-the new flip commands. Installing an upstream package with the same version
-number does not supply these local changes.
+This repository includes the flip task/configuration, central rollout, shared
+PPO, adaptive source allocation and the Isaac Sim ground-cloning repair. The
+modified dependencies are included under `vendor/` as separate Python packages:
 
-| Artifact | Location and status |
-| --- | --- |
-| Published earlier experiment | [G1WalkFlat 10,000-update checkpoint](checkpoints/g1_walk_flat_multisim_10000/README.md) and [bundled dependencies](vendor/README.md) |
-| Current task/config owner | Local `UniLab-unidr-backends`, base `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` plus local changes |
-| Current RL runtime | Local `unilab_rl` / import `uni_rl`, base `79418e0cbff7b95fe6e49709b194454701ba20fa` plus local changes |
-| Current physics adapters | Local `unisim-unidr-backends`, base `4270aa81d868744980db90dac6dd959d3f542f50` plus local changes |
+| Owner | Repository path | Upstream baseline before local changes |
+| --- | --- | --- |
+| UniLab: task/configuration, environment factories, sim2sim | [src/unilab](src/unilab) | `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` |
+| uni_rl: collection, learner, IPC, scheduling and logs | [vendor/unilab_rl](vendor/unilab_rl) | `79418e0cbff7b95fe6e49709b194454701ba20fa` |
+| UniSim: physics adapters and vendor workers | [vendor/unisim](vendor/unisim) | `4270aa81d868744980db90dac6dd959d3f542f50` |
 
-The base commits alone do not reproduce the uncommitted implementation. The
-active UniLab environment uses RSL-RL **5.0.1**; the runtime's separate 5.5.0
-environment has also been tested. All flip commands below assume the three
-modified checkouts, assets, and isolated vendor SDK environments are already
-configured. Run them from `UniLab-unidr-backends`; `uv run --no-sync` preserves
-the selected local dependencies. The [Chinese README](README_zh.md) provides
-the longer experiment and interface description.
+Baseline SHAs alone do not identify the modified implementation. See the
+[source manifest](vendor/manifest.json) and
+[publication validation](docs/validation/unidr-flip-publication-2026-09-21.md)
+for copied-file hashes, packaging changes, executed checks and remaining limits.
+The root lockfile uses RSL-RL **5.0.1**; the runtime's standalone lock uses 5.5.0.
+Use the root environment for the documented workflow.
+
+## Installation and assets
+
+Run on Linux with NVIDIA CUDA and [uv](https://docs.astral.sh/uv/). The measured
+single-GPU experiments use an RTX 3090, Python 3.10 and PyTorch 2.8.0+cu128.
+Install the three editable packages together from this repository:
+
+```bash
+git clone https://github.com/wang-sm520/UniDR.git
+cd UniDR
+uv sync --python 3.10 --locked --extra mujoco --extra motrix --extra genesis
+uv run --no-sync python -c 'import unilab, uni_rl, unisim; print(unilab.__file__); print(uni_rl.__file__); print(unisim.__file__)'
+uv run --no-sync unilab-pull-assets --robot g1
+uv run --no-sync python -c 'from unilab.assets.hub import resolve_motion_files; resolve_motion_files("motions/g1/flip_360_001__A304.npz")'
+export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2
+```
+
+`unilab` must resolve under this checkout's `src/`; `uni_rl` and `unisim` must
+resolve under its `vendor/`. An upstream wheel with the same version number
+does not contain these modifications. Robot meshes, textures and the reference
+motion are fetched through the registered Hugging Face asset hub and are not
+committed. Training checks the pinned motion and G1 XML hashes.
+
+Isaac Gym Preview 4 needs its external Python 3.8 runtime; Isaac Sim 5.1 /
+IsaacLab uses a separate Python 3.11 runtime. These SDKs are not installed by
+`uv sync` or redistributed here. Use the existing isolated installations at
+`~/.cache/unisim/isaacgym` and `~/.cache/unisim/isaacsim`, or set
+`UNISIM_ISAACGYM_HOME` and `UNISIM_ISAACSIM_HOME` to their installation roots.
+Custom interpreters can use `UNISIM_ISAACGYM_PYTHON` and
+`UNISIM_ISAACSIM_PYTHON`. See the explicit setup scripts
+[Isaac Gym](scripts/tools/setup_isaacgym_env.sh) and
+[Isaac Sim](scripts/tools/setup_isaacsim_env.sh) before provisioning a new SDK.
+The worker code itself is loaded from the imported vendored UniSim package.
+
+All following commands run from the UniDR root. Replace each
+`/absolute/...` placeholder with a real path; new output directories must not
+contain a previous experiment.
 
 ## Four-source architecture
 
@@ -91,25 +122,15 @@ archived as a complete raw-data dump for every iteration.
 
 ## Fixed-share training
 
-These commands target the local development implementation described above.
-Check module origins before training; they must resolve to the modified
-checkouts rather than this repository's older `vendor/` snapshot or PyPI wheels.
-
 ```bash
-export UNIDR_DEV=/absolute/path/to/UniLab-unidr-backends
-cd "$UNIDR_DEV"
-export UNILAB_LOCAL_UNISIM=/absolute/path/to/unisim-unidr-backends
-export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2
-uv run --no-sync python -c 'import unilab, uni_rl, unisim; print(unilab.__file__); print(uni_rl.__file__); print(unisim.__file__)'
-
 # Single GPU, four sources at 25% each, fresh 5000-update run.
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_single_gpu \
   algo.num_envs=1024 algo.max_iterations=5000 \
   training.log_dir=/absolute/new/fixed-single-gpu
 
 # Four-GPU device layout; physical execution on four GPUs remains unverified.
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_four_gpu \
   algo.num_envs=1024 algo.max_iterations=5000 \
   training.log_dir=/absolute/new/fixed-four-gpu
@@ -141,15 +162,15 @@ multi-source probes or allocation.
 
 ## Adaptive source allocation
 
-The interface is implemented and tested locally; real adaptive PPO training at
+The interface is included and tested; real adaptive PPO training at
 4×1024 capacity remains unverified. Preview its config without creating physics:
 
 ```bash
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_adaptive --cfg job --resolve
 
 # Enable adaptive allocation on one GPU.
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_adaptive \
   algo.num_envs=1024 algo.max_iterations=5000 \
   training.log_dir=/absolute/new/adaptive-single-gpu
@@ -217,7 +238,7 @@ State includes the model, optimizer, normalizers, RNG, versions, budgets and
 applicable scheduling state. Resume into a new directory:
 
 ```bash
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_single_gpu \
   algo.num_envs=1024 algo.max_iterations=5000 \
   algo.resume=true algo.resume_path=/absolute/parent/model_500.pt \
@@ -230,7 +251,7 @@ matching schedule contract; fixed checkpoints are not seamless adaptive resumes.
 For a completed fixed run:
 
 ```bash
-uv run --no-sync python ../unilab_rl/examples/report_synchronous.py \
+uv run --no-sync python vendor/unilab_rl/examples/report_synchronous.py \
   /absolute/completed/run /absolute/new/report \
   --expected-iterations 5000 --num-envs 1024
 ```
@@ -239,6 +260,56 @@ This report produces an independent budget audit and learning/timing curves.
 The fixed-budget report and dedicated holdout auditor do **not** yet support
 adaptive checkpoints. MuJoCo playback validates the fixed final model and strict
 policy/asset contract before environment creation; it does not pick checkpoints.
+
+## MuJoCo holdout and playback
+
+Checkpoints and experiment videos are generated artifacts, not bundled pretrained
+models. Supply the fixed checkpoint together with its original run directory,
+configuration and manifests. Prepare the G1 assets above before evaluating on
+another machine. The loader validates the model dimensions, task contract, asset
+hashes and complete optimization budget before constructing MuJoCo.
+
+```bash
+# Fixed four-source final model from the 5000-update example.
+MUJOCO_GL=egl uv run --no-sync python scripts/play_unidr_holdout.py \
+  /absolute/completed/run/model_4999.pt \
+  --expected-iterations 5000 --output /absolute/new/joint-mujoco
+
+# Single-source final model with the phase-matched reference overlay.
+MUJOCO_GL=egl uv run --no-sync python scripts/play_single_reference.py \
+  /absolute/completed/genesis/model_4999.pt \
+  --expected-iterations 5000 --num-envs 4096 \
+  --output /absolute/new/genesis-mujoco-reference
+
+# Ten uninterrupted attempts: complete the action, then observe five seconds.
+MUJOCO_GL=egl uv run --no-sync python scripts/evaluate_flip_trials.py \
+  --single-run genesis /absolute/completed/genesis \
+  --expected-iterations 5000 --num-envs 4096 \
+  --output /absolute/new/genesis-ten-trials
+```
+
+The two recording entrypoints produce 20-second 720p/50 FPS videos with their
+verification metadata. Their native termination/reference-loop playback is not
+the uninterrupted five-second success protocol. The trial evaluator holds the
+last reference frame, keeps policy/physics running for 250 more control steps
+and forbids resets inside each 474-step attempt. Seeds 1–10 repeat the original
+deterministic scenario with no extra DR; this is not ten randomized conditions.
+MuJoCo results must not be used to select a different checkpoint or retune the
+training configuration. Adaptive-checkpoint holdout auditing remains unsupported.
+
+For native simulator playback, use the ordinary evaluation CLI with an explicit
+checkpoint; a display is needed for interactive rendering:
+
+```bash
+uv run --no-sync eval --algo ppo --task g1_flip_tracking \
+  --sim genesis --profile comparison \
+  algo.load_run=/absolute/completed/genesis/model_4999.pt \
+  --render-mode interactive training.play_env_num=1
+```
+
+Replace the backend and checkpoint together to play a single-source policy in
+its training engine. Native task playback may reset or loop the reference; it
+does not establish the no-fall-for-five-seconds holdout criterion.
 
 ## Recent progress and remaining validation
 
@@ -254,9 +325,9 @@ policy/asset contract before environment creation; it does not pick checkpoints.
 - Repaired single Isaac Sim **4096×5000** completed and passed budget and final
   native-log audits. Genesis, Motrix and Isaac Gym **4096×5000** single-source
   runs also completed.
-- Repaired fixed joint **4×1024×5000** training remains in progress. The recorded
-  3501-update checkpoint audit passed: 344,162,304 transitions and 70,020 optimizer
-  steps. This is an intermediate snapshot, not final completion.
+- Repaired fixed joint **4×1024×5000** training was still running when this
+  source snapshot was prepared. Its final budget/resource audit is separate
+  from source publication; see the dated validation report for the recorded status.
 - Four-GPU validation covers device mapping only. Real adaptive training and
   1024-env-per-source adaptive capacity remain unverified. Current deterministic
   MuJoCo trials did not meet the full-flip-plus-five-second-stability criterion;
@@ -267,162 +338,24 @@ did not show the 4096-env capacity failure. The single-source defect does not
 invalidate every historical joint run. Budget correctness, native task success,
 sim2sim performance and sim2real results remain separate evidence levels.
 
-## Upstream UniLab
+## Ownership, validation and attribution
 
-The original UniLab introduction, installation links, license and citation are
-retained below. Upstream features do not imply that the local UniDR flip changes
-are included in this repository. For the published WalkFlat snapshot, use the
-checkpoint and vendor instructions linked above.
+Use the [bundled dependency guide](vendor/README.md) for owner-specific checks.
+Training configuration is under
+[src/unilab/conf/ppo/task/g1_flip_tracking](src/unilab/conf/ppo/task/g1_flip_tracking);
+the central runner is
+[vendor/unilab_rl/src/uni_rl/algos/synchronous_runner.py](vendor/unilab_rl/src/uni_rl/algos/synchronous_runner.py).
+The [publication report](docs/validation/unidr-flip-publication-2026-09-21.md)
+records exact commands and results. Historical WalkFlat work remains in Git
+history; it is not the current experiment entrypoint.
 
-<p align="center">
-  <a href="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml"><img src="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://unilabsim.github.io"><img src="https://img.shields.io/badge/project-page-brightgreen" alt="Project Page"></a>
-  <a href="https://arxiv.org/abs/2605.30313"><img src="https://img.shields.io/badge/paper-arXiv--2605.30313-red" alt="Paper"></a>
-  <a href="https://arxiv.org/abs/2605.30313"><img src="https://img.shields.io/badge/CoRL-2026-orange" alt="CoRL 2026"></a>
-  <a href="https://unilabsim.github.io/UniLab-doc/"><img src="https://img.shields.io/badge/docs-UniLab--doc-blue" alt="Documentation"></a>
-  <a href="https://pypi.org/project/unilab/"><img src="https://img.shields.io/pypi/v/unilab" alt="PyPI"></a>
-  <a href="https://github.com/unilabsim/UniLab/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 License"></a>
-</p>
-
-<h3 align="center">🎉 🎉 UniLab has been accepted to <b>CoRL 2026</b>! 🎉 🎉</h3>
-
-<p align="center">
-  <img src="docs/sphinx/source/_static/assets/teaser.jpg" alt="UniLab Teaser" width="95%">
-</p>
-
-<p align="center"><em>One task-authoring surface for locomotion, manipulation, and motion tracking.</em></p>
-
-UniLab is configurable infrastructure for robot reinforcement learning.
-Describe a task with Hydra, assemble it from manager terms, select a physics
-backend, and train or evaluate through one CLI. The same task-facing contract
-connects CPU, GPU, and external-worker simulation to the learner runtime.
-
-The same framework has documented paths for Windows, Apple Silicon macOS, Linux
-CUDA, AMD ROCm, and Intel XPU. Backend and task maturity are evidence-graded;
-use the [support matrix](https://unilabsim.github.io/UniLab-doc/en/5-reference/5-support_matrix.html)
-to choose a tested combination.
-
-See policies in action on the [project page](https://unilabsim.github.io/#demos),
-or read [Why UniLab?](https://unilabsim.github.io/UniLab-doc/en/why_unilab.html)
-to understand the project fit, evidence, and comparison with alternatives.
-
-## Highlights
-
-UniLab's core idea is simple: define task semantics once as reusable
-configuration, then change the simulator, hardware, or learner without
-rewriting the task's environment lifecycle.
-
-- **Configure, don't code.** Actions, observations, rewards, terminations,
-  events, commands, curricula, and metrics are manager terms assembled in Hydra
-  owner YAML. Variants built from existing terms need no new environment class
-  — often no Python code at all.
-- **Change the backend, keep the workflow.** Registered simulators meet the
-  public `SimBackend` contract. Choose a backend with `--sim`; when a matching
-  task owner exists, task authoring and train/eval stay consistent while
-  backend-specific details remain explicit.
-- **Keep solver and learner devices independent.** CPU-parallel, native, or
-  external-worker simulation can feed an accelerator learner without first
-  becoming a CUDA-resident simulator. The learner can run on CUDA, ROCm, MPS,
-  or XPU; the [support matrix](https://unilabsim.github.io/UniLab-doc/en/5-reference/5-support_matrix.html)
-  records the evidence level of each backend/task combination.
-- **Accelerate replay-based off-policy training.** FastSAC/FlashSAC lets
-  simulation data collection overlap with learner updates. The paper reports
-  3–10× end-to-end gains on representative configurations; see [Why UniLab](https://unilabsim.github.io/UniLab-doc/en/why_unilab.html)
-  for scope and measurements.
-
-## Quick start
-
-The supported source workflow uses [`uv`](https://docs.astral.sh/uv/). This is
-the shortest path to a policy demo:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone https://github.com/unilabsim/UniLab.git
-cd UniLab
-
-make setup
-# Downloads the checkpoint and assets from Hugging Face on first run.
-uv run demo dance
-```
-
-For Windows, macOS, CUDA, ROCm, XPU, optional backends, and headless rendering,
-use the [installation guide](https://unilabsim.github.io/UniLab-doc/en/1-getting_started/2-installation.html)
-and [quick demo guide](https://unilabsim.github.io/UniLab-doc/en/1-getting_started/1-quick_demo.html).
-
-## Train and evaluate
-
-```bash
-# Train and replay one task with Motrix.
-uv run train --algo ppo --task go2_joystick_flat --sim motrix
-uv run eval --algo ppo --task go2_joystick_flat --sim motrix --load-run -1
-
-# Use the same task-facing command with another configured backend.
-uv run train --algo ppo --task go2_joystick_flat --sim mujoco
-
-# Replay-based off-policy path.
-uv run train --algo sac --task g1_walk_flat --sim mujoco
-```
-
-The flags keep algorithm, task, and simulator choices visible. Resume, W&B,
-Hydra overrides, playback, backend setup, and the full command matrix belong in
-the [training guide](https://unilabsim.github.io/UniLab-doc/en/2-user_guide/1-training/0-index.html),
-[backend guide](https://unilabsim.github.io/UniLab-doc/en/2-user_guide/3-backends/0-index.html),
-and [support matrix](https://unilabsim.github.io/UniLab-doc/en/5-reference/5-support_matrix.html).
-
-## Ecosystem
-
-UniLab is designed to be a shared task and training surface for robot-specific
-repositories. They can ship robot recipes independently while consuming the
-same task, backend, and RL contracts. Current downstream examples:
-
-- [MicroDuck RL](https://github.com/unilabsim/microduck_rl_unilab)
-- [EngineAI RL](https://github.com/unilabsim/engineai_rl_unilab)
-- [Wuji](https://github.com/unilabsim/wuji_unilab)
-- [Legged Manipulation](https://github.com/unilabsim/legged-manipulation_unilab)
-
-## Documentation
-
-- [Why UniLab?](https://unilabsim.github.io/UniLab-doc/en/why_unilab.html)
-- [Installation and first demo](https://unilabsim.github.io/UniLab-doc/en/1-getting_started/0-index.html)
-- [Training and evaluation](https://unilabsim.github.io/UniLab-doc/en/2-user_guide/1-training/0-index.html)
-- [Backend support matrix](https://unilabsim.github.io/UniLab-doc/en/5-reference/5-support_matrix.html)
-- [Sim-to-sim deployment](https://unilabsim.github.io/UniLab-doc/en/3-deployment/2-sim_to_sim/1-backend_swap.html)
-- [Developer guide](https://unilabsim.github.io/UniLab-doc/en/4-developer_guide/0-index.html)
-
-For development and contribution workflows, see the
-[contributing guide](CONTRIBUTING.md).
-
-## Community
-
-<p align="center">
-  <img src="docs/sphinx/source/_static/assets/unilab-wechat-assistant.jpg" alt="UniLab community QR code" width="180">
-</p>
-
-<p align="center">Add the UniLab assistant on WeChat to join the community.</p>
-
-## Citation
-
-```bibtex
-@article{jia2026unilab,
-  title         = {UniLab: A Heterogeneous Architecture for Robot RL Beyond GPU-Dominant Paradigms},
-  author        = {Jia, Yufei and Cao, Zhanxiang and Yu, Mingrui and Zhang, Heng and Chen, Shenyu and Jiang, Dixuan and Li, Meng and Li, Xiaofan and Liu, Yiyang and Wu, Junzhe and Li, Zheng and Fang, XiLin and Cui, Tingyu and Fu, Shengcheng and Li, Haoyang and Wang, Anqi and Wang, Zifan and Zhu, Dongjie and Cao, Chenyu and Huang, Zhenbiao and Zheng, Ziang and Lu, Jie and Ma, Xin and Wei, Zhengyang and Zhao, Xiang and Zhan, Tianyue and He, Ye and Chen, Yuxiang and Jiang, Yizhou and Li, Yue and Ge, Haizhou and Dong, Yuhang and Jia, Fan and Zhang, Ziheng and Zhang, Meng and Deng, Xiwa and Chen, Zhixing and Shao, Hanyang and Dong, Chenxin and Li, Yixuan and Chen, Yizhi and Chen, Bokui and Zhang, Kaifeng and Cui, Hanqing and Qin, Yusen and Huang, Ruqi and Han, Lei and Wang, Tiancai and Li, Xiang and Gao, Yue and Zhou, Guyue},
-  journal       = {arXiv preprint arXiv:2605.30313},
-  year          = {2026},
-  url           = {https://arxiv.org/abs/2605.30313}
-}
-```
-
-UniLab is released under the [Apache License 2.0](LICENSE). See the
-independent [UniSim](https://github.com/unilabsim/unisim) and
-[UniLab RL](https://github.com/unilabsim/unilab_rl) repositories for their
-own release and citation information.
-
-## Acknowledgments
-
-UniLab would not exist without the excellent work of the
-[Isaac Lab](https://github.com/isaac-sim/IsaacLab) team and the
-[mjlab](https://github.com/mujocolab/mjlab) developers and contributors. Isaac
-Lab's manager-based API design and abstractions, together with mjlab's clear,
-lightweight reference implementation, helped shape UniLab's Hydra and NumPy
-task authoring experience. We sincerely thank both communities for sharing
-their work and ideas.
+UniDR builds on [UniLab](https://github.com/unilabsim/UniLab),
+[UniLab RL](https://github.com/unilabsim/unilab_rl) and
+[UniSim](https://github.com/unilabsim/unisim), with sampling organization informed
+by PolySim. See the [upstream documentation](https://unilabsim.github.io/UniLab-doc/)
+for generic framework/backend usage and the
+[UniLab paper](https://arxiv.org/abs/2605.30313) for upstream citation details.
+The original [Apache-2.0 license](LICENSE) and the separate
+[runtime](vendor/unilab_rl/LICENSE) and [physics](vendor/unisim/LICENSE) licenses
+are retained. This repository is a research source snapshot, not a new upstream
+package release or a claim of demonstrated sim2real gains.

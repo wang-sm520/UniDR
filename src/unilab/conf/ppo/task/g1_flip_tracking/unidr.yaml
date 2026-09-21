@@ -1,0 +1,26 @@
+# @package _global_
+# Aligned profile from motrix-aligned-1024-10000-20260915-2108.
+defaults:
+  - /task/g1_flip_tracking/motrix
+  - _self_
+
+algo:
+  num_envs: 1024
+  max_iterations: 10000
+  num_steps_per_env: 24
+  save_interval: 500
+  empirical_normalization: true
+  algorithm:
+    num_learning_epochs: 5
+    num_mini_batches: 4
+    schedule: adaptive
+
+training:
+  no_play: true
+  sim2sim_strict: true
+
+env:
+  # Isaac Sim and Isaac Gym already disable robot self-collision natively.
+  # Preserve robot-ground contacts in all four sources.
+  motrix_disable_self_collision: true
+  genesis_enable_self_collision: false

@@ -19,7 +19,6 @@ from unisim.dr.types import (
     RESET_TERM_KD,
     RESET_TERM_KP,
     DomainRandomizationCapabilities,
-    InitRandomizationPlan,
     IntervalTermOp,
     ResetRandomizationPayload,
 )
@@ -116,6 +115,7 @@ def _build_motrix_scene_context(
     *,
     add_body_sensors: bool,
     base_name: str,
+    disable_self_collision: bool = False,
 ) -> _MotrixSceneContext:
     from unisim.backend.motrix.scene import (
         _materialize_motrix_hfield_attached_scene_with_sensor_names,
@@ -133,6 +133,7 @@ def _build_motrix_scene_context(
             fragment_files=scene.fragment_files,
             add_body_sensors=add_body_sensors,
             base_name=base_name,
+            disable_self_collision=disable_self_collision,
         )
         return _MotrixSceneContext(model=model, sensor_names=sensor_names)
 
@@ -148,6 +149,7 @@ def _build_motrix_scene_context(
             geom_name=scene.terrain.geom_name or "floor",
             add_body_sensors=add_body_sensors,
             base_name=base_name,
+            disable_self_collision=disable_self_collision,
             return_surface_sampler=True,
         )
     )
@@ -172,7 +174,10 @@ class MotrixBackend(SimBackend):
         add_body_sensors: bool = False,
         max_iterations: int | None = DEFAULT_MOTRIX_MAX_ITERATIONS,
         push_body_name: str | None = None,
+        disable_self_collision: bool = False,
     ):
+        if not isinstance(disable_self_collision, bool):
+            raise TypeError("motrix disable_self_collision must be bool")
         if not MOTRIX_AVAILABLE:
             raise ImportError("motrixsim not available")
 
@@ -180,6 +185,7 @@ class MotrixBackend(SimBackend):
             scene,
             add_body_sensors=add_body_sensors,
             base_name=base_name,
+            disable_self_collision=disable_self_collision,
         )
         self._scene = scene
         self.scene_artifacts_dir = None
@@ -325,7 +331,6 @@ class MotrixBackend(SimBackend):
                     geom.get_friction_override(self._data),
                     dtype=np.float32,
                 ).reshape(self._num_envs, 3)[0]
-        self._init_geom_size_overrides: dict[int, np.ndarray] = {}
         self._render_app: "RenderApp | None" = None
         self._render_headless: bool | None = None
         self._render_capture_enabled = False
@@ -796,10 +801,6 @@ class MotrixBackend(SimBackend):
         timing["set_state_clear_forces_ms"] = (time.perf_counter() - t0) * 1000.0
 
         t0 = time.perf_counter()
-        self._apply_init_geom_size_overrides(data_slice, env_indices, env_ids_intp=env_ids_intp)
-        timing["set_state_geom_overrides_ms"] = (time.perf_counter() - t0) * 1000.0
-
-        t0 = time.perf_counter()
         self._apply_reset_randomization(
             data_slice, env_indices, randomization, env_ids_intp=env_ids_intp
         )
@@ -897,52 +898,27 @@ class MotrixBackend(SimBackend):
             ),
         )
 
-    def apply_init_randomization(self, plan: InitRandomizationPlan) -> None:
-        if plan.is_empty():
-            return
-        model_assignments = np.asarray(plan.model_assignments, dtype=np.int32)
-        if model_assignments.shape != (self._num_envs,):
-            raise ValueError(
-                f"model_assignments must have shape ({self._num_envs},), "
-                f"got {model_assignments.shape}"
-            )
-        if np.any(model_assignments < 0) or np.any(model_assignments >= len(plan.model_variants)):
-            raise ValueError(
-                "model_assignments must refer to entries in InitRandomizationPlan.model_variants"
-            )
-
-        geom_size_overrides: dict[int, np.ndarray] = {}
-        for variant_id, variant in enumerate(plan.model_variants):
-            env_indices = np.flatnonzero(model_assignments == variant_id)
-            if env_indices.size == 0:
-                continue
-            for override in variant.geom_size_overrides:
-                geom_id = self.get_geom_id(override.geom_name)
-                geom = _require_not_none(
-                    self._model.get_geom(geom_id),
-                    f"Geom '{override.geom_name}' not found in Motrix model",
-                )
-                override_shape = np.asarray(geom.get_size_override(self._data)).shape
-                if len(override_shape) != 2:
-                    raise ValueError(
-                        f"Motrix geom '{override.geom_name}' size override must be rank-2, "
-                        f"got shape {override_shape}"
-                    )
-                width = int(override_shape[1])
-                size = np.asarray(override.size, dtype=np.float64).reshape(-1)
-                if size.size < width:
-                    raise ValueError(
-                        f"GeomSizeOverride for '{override.geom_name}' has {size.size} values, "
-                        f"but Motrix expects at least {width}"
-                    )
-                values = geom_size_overrides.setdefault(
-                    geom_id,
-                    np.asarray(geom.get_size_override(self._data), dtype=np.float64).copy(),
-                )
-                values[env_indices, :] = size[:width]
-
-        self._init_geom_size_overrides = geom_size_overrides
-        self._apply_init_geom_size_overrides(self._data, np.arange(self._num_envs, dtype=np.int32))
+    def get_reset_term_default(self, term: str) -> np.ndarray:
+        """Return the Motrix default table for a curated reset term."""
+        if term in (RESET_TERM_BASE_MASS, RESET_TERM_BASE_COM):
+            value = np.zeros(() if term == RESET_TERM_BASE_MASS else (3,), dtype=np.float64)
+        elif term == RESET_TERM_BODY_MASS:
+            value = self.get_body_mass().astype(np.float64, copy=False)
+        elif term == RESET_TERM_BODY_IPOS:
+            value = self.get_body_ipos().astype(np.float64, copy=False)
+        elif term == RESET_TERM_KP:
+            value = self.get_actuator_gains()[0].astype(np.float64, copy=False)
+        elif term == RESET_TERM_KD:
+            value = self.get_actuator_gains()[1].astype(np.float64, copy=False)
+        elif term == RESET_TERM_GEOM_FRICTION:
+            value = self.get_geom_friction().astype(np.float64, copy=False)
+        elif term == RESET_TERM_GRAVITY:
+            value = self.get_gravity().astype(np.float64, copy=False)
+        else:
+            raise NotImplementedError(f"MotrixBackend does not expose reset term {term!r}")
+        result = np.array(value, dtype=np.float64, copy=True)
+        result.setflags(write=False)
+        return result
 
     _interval_term_handler_cache: dict[str, Callable[[IntervalTermOp], None]] | None = None
 
@@ -954,9 +930,7 @@ class MotrixBackend(SimBackend):
         if self._interval_term_handler_cache is None:
             self._interval_term_handler_cache = {
                 INTERVAL_TERM_PUSH: lambda op: self.push_robots(op.payload),
-                INTERVAL_TERM_BODY_FORCE: lambda op: self.apply_body_force(
-                    op.body_ids, op.payload
-                ),
+                INTERVAL_TERM_BODY_FORCE: lambda op: self.apply_body_force(op.body_ids, op.payload),
             }
         return self._interval_term_handler_cache
 
@@ -1381,27 +1355,6 @@ class MotrixBackend(SimBackend):
         if arr.shape == flat_shape:
             return arr.reshape(shaped).copy()
         raise ValueError(f"{name} must have shape {shaped} or {flat_shape}, got {arr.shape}")
-
-    def _apply_init_geom_size_overrides(
-        self,
-        data_slice,
-        env_indices: np.ndarray,
-        env_ids_intp: np.ndarray | None = None,
-    ) -> None:
-        if not self._init_geom_size_overrides:
-            return
-        env_ids = (
-            env_ids_intp if env_ids_intp is not None else np.asarray(env_indices, dtype=np.intp)
-        )
-        for geom_id, values in self._init_geom_size_overrides.items():
-            geom = _require_not_none(
-                self._model.get_geom(int(geom_id)),
-                f"Geom id {geom_id} not found in Motrix model",
-            )
-            geom.set_size_override(
-                data_slice,
-                np.ascontiguousarray(np.asarray(values[env_ids], dtype=np.float32)),
-            )
 
     def _set_link_mass_overrides(self, data_slice, body_mass: np.ndarray) -> None:
         for link_id, link in self._links_by_id.items():

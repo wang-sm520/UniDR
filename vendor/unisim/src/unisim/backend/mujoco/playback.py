@@ -152,52 +152,46 @@ def resolve_render_play_model_files(
     num_envs: int,
     tmp_dir: str | Path,
 ) -> str | list[str]:
-    """Resolve visual MuJoCo model files for offline play/video export."""
-    visual_model_file = _visual_model_file(env)
-    if not hasattr(env, "get_playback_model"):
-        if visual_model_file is None:
-            raise ValueError("MuJoCo playback requires either cfg.scene or get_playback_model().")
-        return visual_model_file
+    """Resolve the visual MuJoCo model file for offline play/video export.
 
-    first_model = env.get_playback_model(0)
-    if isinstance(first_model, (str, Path)):
-        return str(first_model)
+    Fixed variant plans carry per-env identities, in which case each world's
+    independently compiled playback model is saved as a self-contained MJB.
+    Otherwise one visual model file serves every rendered environment.
+    """
+    backend = getattr(env, "_backend", env)
+    capabilities = getattr(backend, "get_dr_capabilities", lambda: None)()
+    if getattr(capabilities, "supports_per_env_playback", False):
+        import mujoco as _mujoco
+
+        mujoco: Any = _mujoco
+        model_files: list[str] = []
+        for env_index in range(num_envs):
+            playback_model = env.get_playback_model(env_index)
+            if isinstance(playback_model, (str, Path)):
+                model_files.append(str(playback_model))
+                continue
+            output_path = Path(tmp_dir) / f"playback_model_{env_index}.mjb"
+            mujoco.mj_saveModel(playback_model, str(output_path))
+            model_files.append(str(output_path))
+        return model_files
+
+    visual_model_file = _visual_model_file(env)
+    if visual_model_file is not None:
+        return visual_model_file
+    if not hasattr(env, "get_playback_model"):
+        raise ValueError("MuJoCo playback requires either cfg.scene or get_playback_model().")
+
+    playback_model = env.get_playback_model(0)
+    if isinstance(playback_model, (str, Path)):
+        return str(playback_model)
 
     import mujoco as _mujoco
 
     mujoco: Any = _mujoco
 
-    visual_base = (
-        mujoco.MjModel.from_xml_path(visual_model_file) if visual_model_file is not None else None
-    )
-    tmp_root = Path(tmp_dir)
-    path_by_model_id: dict[int, str] = {}
-    model_files: list[str] = []
-    for env_idx in range(num_envs):
-        playback_model = env.get_playback_model(env_idx)
-        if isinstance(playback_model, (str, Path)):
-            model_files.append(str(playback_model))
-            continue
-        key = id(playback_model)
-        saved = path_by_model_id.get(key)
-        if saved is None:
-            output_path = tmp_root / f"model_{len(path_by_model_id)}.mjb"
-            if visual_model_file is None or visual_base is None:
-                mujoco.mj_saveModel(playback_model, str(output_path))
-                saved = str(output_path)
-            else:
-                saved = materialize_visual_playback_model(
-                    visual_model_file=visual_model_file,
-                    visual_base_model=visual_base,
-                    playback_model=playback_model,
-                    output_path=output_path,
-                )
-            path_by_model_id[key] = saved
-        model_files.append(saved)
-
-    if len(set(model_files)) == 1:
-        return model_files[0]
-    return model_files
+    output_path = Path(tmp_dir) / "playback_model.mjb"
+    mujoco.mj_saveModel(playback_model, str(output_path))
+    return str(output_path)
 
 
 def materialize_visual_playback_model(
@@ -207,7 +201,12 @@ def materialize_visual_playback_model(
     playback_model: Any,
     output_path: str | Path,
 ) -> str:
-    """Compile a visual MuJoCo model using geom sizes from a playback model."""
+    """Compile a visual MuJoCo model using geom sizes from a playback model.
+
+    Kept as a public compat export after the mjbatch swap. Fixed-variant
+    playback resolution uses per-world source oracles instead; this helper
+    remains for legacy single-model visual overrides.
+    """
     import mujoco as _mujoco
 
     mujoco: Any = _mujoco

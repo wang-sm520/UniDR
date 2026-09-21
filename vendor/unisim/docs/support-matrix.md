@@ -2,7 +2,7 @@
 
 | Backend | Import | Install/runtime boundary | Status |
 | --- | --- | --- | --- |
-| MuJoCo | `unisim.MuJoCoBackend` | `uv sync --extra mujoco` | available |
+| MuJoCo | `unisim.MuJoCoBackend` | `uv sync --extra mujoco` (mjbatch runtime) | available |
 | Motrix | `unisim.MotrixBackend` | `uv sync --extra motrix` | available |
 | Drake | `unisim.DrakeBackend` | `uv sync --extra drake` (`drake-uni`) + native batch extension | available |
 | MJWarp | `unisim.MJWarpBackend` | `uv sync --extra mjwarp`, CUDA | available |
@@ -17,12 +17,37 @@ runtime discovery and raises an adapter-specific, actionable error when the
 runtime is unavailable. The matrix is an adapter/API support statement, not a
 claim that every host has every vendor SDK or GPU capability.
 
-IsaacGym and IsaacSim implement selected-environment absolute mass/stiffness/
-damping resets through a versioned worker handshake. IsaacSim contacts require
-a genuine IsaacLab reporter, never a placeholder force slot. See the
-[Isaac reset contract](isaac-reset-contract.md) for wire compatibility,
-capability boundaries, and the distinction between CPU/readback checks and
-native G1 physical-effect acceptance.
+Self-collision can be selected at construction with
+`create_backend("motrix", ..., motrix_disable_self_collision=True)` or
+`create_backend("genesis", ..., genesis_enable_self_collision=False)`.
+The Motrix option disables internal contacts for the articulation whose root is
+`base_name`; a missing or ambiguous root fails before model construction.
+Genesis disables contacts between links sharing an articulation root, including
+when the robot and floor are imported from one MJCF. Robot-ground and contacts
+with other articulation roots remain enabled. Both options accept a boolean or
+`None`; unset/`None` retains historical behavior. IsaacGym and IsaacSim already
+disable robot self-collision in their worker import paths. These options do not
+change MuJoCo contacts.
+
+The MuJoCo adapter's native executor is
+[mjbatch](https://github.com/unilabsim/mjbatch), a maintained fork of
+kevinzakka/mjbatch with prebuilt wheels for Linux x86_64/aarch64 and macOS
+(CPython 3.10–3.14t) and an exact `mujoco==3.11.0` pin. Windows and musllinux
+are unsupported for the native executor, so the Windows CI job runs the
+core/import-boundary subset only. Numerical results before and after the
+switch from the previous executor are not guaranteed identical — drift is
+characterized by a recorded baseline, not gated. The MuJoCo adapter supports
+construction-time `FixedVariantPlan` catalogs with `same_layout` and
+`uniform_public_layout` guarantees. Same-layout variants and optional named
+mesh-geom slots are merged into one canonical mjbatch executor through
+`VariantPack`; heterogeneous public topology fails closed. Reset model-field
+writes and per-world compiler defaults go through mjbatch `expand`/`set_const`,
+and playback exposes a per-env independently compiled visual oracle. MJWarp
+realizes construction-time same-layout and uniform-public-layout variants by
+pooling assets in one canonical model and installing fixed per-world model rows
+before CUDA graph capture. `chunk_size`/`adaptive_chunk_size` are deprecated and
+ignored (warn-and-ignore); the chunk scheduler was removed and mjbatch's
+work-stealing thread pool is the tuning mechanism.
 
 The MuJoCo-related extras share one version line (MuJoCo 3.11 / MuJoCo-Warp
 3.11 / warp-lang 1.16.0) and are jointly installable: `mjwarp` tracks the line

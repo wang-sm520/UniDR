@@ -37,3 +37,43 @@ the builtin term specs, routes it to the matching handler, and fails closed
 with `NotImplementedError` for any term a backend does not declare. Custom
 terms are free-form strings owned by the registering backend and validated
 only against its capability set.
+
+Reset-time model-field writes use the curated fields on
+`ResetRandomizationPayload`; callers never submit compiler-derived fields such
+as geometry bounds independently. Adapters expose authoritative defaults through
+`SimBackend.get_reset_term_default(term)`: a canonical table for a single-model
+backend or a per-environment table when fixed variants establish different
+baselines.
+
+Fixed model identity is separate from reset randomization. A task carries
+`FixedVariantPlan` on `SceneCfg` so engine adapters realize it during
+construction, before their first forward and before CUDA graph capture. The
+plan contains final
+read-only assignment rows, complete materialized `ModelSourceDescriptor`
+entries, and a public layout guarantee (`same_layout` or
+`uniform_public_layout`). Domain
+randomization capabilities advertise the layouts an adapter can realize, as
+well as whether playback exposes a per-env model. The plan and
+capability objects use only stdlib and NumPy types, so they remain pickle-safe;
+live `MjSpec`, mjbatch, and Warp objects never cross this boundary. Slot
+merging, mesh/material pooling, per-world arrays, derived-field recomputation,
+and playback representation are adapter-owned implementation details.
+
+The MuJoCo adapter realizes that contract without reintroducing one full model
+per environment. On the cold path it independently compiles each materialized
+MJCF as a numerical/default oracle, validates same or uniform public layout,
+and delegates canonical mesh pooling to mjbatch's `VariantPack`. The adapter
+retains the canonical executor model, compiler-derived variant rows, compact
+default tables, and immutable assignment—not one compiled `MjModel` per variant.
+Runtime reset writes use the same expanded model-field views as canonical
+mode. Same-layout mesh-geom slots may be disabled per world; changes to public
+state/control topology fail closed. Playback compiles a detached visual oracle
+on demand from the selected source, and offline playback saves one self-contained
+model per rendered environment.
+
+The MJWarp adapter realizes that plan during construction. It compiles every
+MJCF source independently for oracle values, validates the declared layout,
+pools meshes/materials into one canonical model, and installs per-world
+`geom_dataid`, `geom_matid`, and mesh-dependent model fields after `put_model`
+but before the first forward and CUDA-graph capture. Reset mirrors and
+`get_reset_term_default()` therefore start from each world's assigned variant.

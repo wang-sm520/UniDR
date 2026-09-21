@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - /task/g1_flip_tracking/base
+  - _self_
+
+training:
+  sim_backend: isaacsim
+
+env:
+  isaacsim_device_id: 0
+  isaacsim_worker_timeout_s: 180.0

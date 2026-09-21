@@ -17,7 +17,6 @@ import argparse
 import importlib.util
 import math
 import os
-import re
 import sys
 import time
 from typing import Any
@@ -106,23 +105,81 @@ def _resolve_articulation_root_prim_path(usd_path: str, root_name: str) -> str:
     return relative
 
 
-def _contact_sensor_path(sim_utils: Any, source_path: str, body_names: list[str]) -> str:
-    """Discover the importer's link parent once, before the physics scene starts."""
-    from pxr import UsdPhysics
+def _share_static_ground(stage: Any, usd_path: str, env_paths: list[str]) -> list[str]:
+    """Extract invariant horizontal planes before PhysX parses cloned assets.
 
-    prims = sim_utils.get_all_matching_child_prims(
-        source_path, predicate=lambda prim: prim.HasAPI(UsdPhysics.RigidBodyAPI)
-    )
-    paths = [str(prim.GetPath()) for prim in prims]
-    selected = [path for path in paths if path.rsplit("/", 1)[-1] in body_names]
-    parents = {path.rsplit("/", 1)[0] for path in selected}
-    if len(selected) != len(body_names) or len(parents) != 1:
-        raise RuntimeError(
-            "IsaacSim contact reporter requires all contract links under one imported parent; "
-            f"found {selected} for {body_names}"
-        )
-    parent = parents.pop().replace("/World/envs/env_0/", "/World/envs/env_.*/", 1)
-    return parent + "/(" + "|".join(re.escape(name) for name in body_names) + ")"
+    The MJCF importer wraps its infinite floor in a kinematic articulation.
+    Replicating that floor creates quadratic broadphase/aggregate pair demand,
+    even with collision groups. References preserve composed transforms and
+    material bindings; no default ground material is substituted here.
+    """
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
+
+    source = Usd.Stage.Open(usd_path)
+    root = source.GetDefaultPrim().GetPath()
+    planes, wrappers = [], set()
+    materials = []
+    for prim in source.Traverse():
+        if prim.IsA(UsdShade.Material):
+            materials.append(prim.GetPath())
+        if not prim.IsA(UsdGeom.Plane) or not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if not UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get():
+            continue
+        axis = UsdGeom.Plane(prim).GetAxisAttr().Get()
+        normal = Gf.Vec3d(*{"X": (1, 0, 0), "Y": (0, 1, 0), "Z": (0, 0, 1)}[axis])
+        transform = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        normal = transform.GetInverse().GetTranspose().TransformDir(normal).GetNormalized()
+        if abs(normal[2]) < 1 - 1e-8:
+            raise ValueError("shared ground requires a static horizontal collision plane")
+        parent = prim
+        while parent and parent.GetPath().HasPrefix(root):
+            if any(a.ValueMightBeTimeVarying() for a in parent.GetAttributes()):
+                raise ValueError("shared ground requires a static horizontal collision plane")
+            if parent.HasAPI(UsdPhysics.RigidBodyAPI) or parent.HasAPI(
+                UsdPhysics.ArticulationRootAPI
+            ):
+                for child in Usd.PrimRange(parent):
+                    if child.HasAPI(UsdPhysics.RigidBodyAPI):
+                        if not UsdPhysics.RigidBodyAPI(child).GetKinematicEnabledAttr().Get():
+                            raise ValueError(
+                                "shared ground requires a static horizontal collision plane"
+                            )
+                    if child.HasAPI(UsdPhysics.CollisionAPI) and not child.IsA(UsdGeom.Plane):
+                        raise ValueError(
+                            "shared ground requires an isolated static horizontal plane"
+                        )
+                wrappers.add(parent.GetPath())
+            parent = parent.GetParent()
+        planes.append(prim.GetPath())
+    if not planes:
+        return []
+
+    shared = stage.DefinePrim("/World/sharedGround")
+    shared.GetReferences().AddReference(usd_path)
+    shared_path = shared.GetPath()
+    keep = [p.ReplacePrefix(root, shared_path) for p in planes + materials]
+    # Retain plane ancestors (transforms, inherited material bindings) and all
+    # material dependencies. Prune robot, joints and unrelated scene objects.
+    for prim in reversed(list(Usd.PrimRange(shared))):
+        path = prim.GetPath()
+        if not any(path.HasPrefix(k) or k.HasPrefix(path) for k in keep):
+            prim.SetActive(False)
+    for path in wrappers:
+        for target in [
+            shared_path,
+            *[stage.GetPrimAtPath(p + "/Robot").GetPath() for p in env_paths],
+        ]:
+            prim = stage.GetPrimAtPath(path.ReplacePrefix(root, target))
+            if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+                prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
+    for env_path in env_paths:
+        robot_path = stage.GetPrimAtPath(env_path + "/Robot").GetPath()
+        for path in planes:
+            stage.GetPrimAtPath(path.ReplacePrefix(root, robot_path)).SetActive(False)
+    return [str(shared_path)]
 
 
 class _WorkerContext:
@@ -160,19 +217,12 @@ class _WorkerContext:
         self.collision_filtering_applied = False
         self.slots: dict[str, np.ndarray] = {}
         self._shm_handles: list[Any] = []
-        self.contact_sensor: Any = None
-        self.contact_body_for_contract = np.empty(0, dtype=np.int64)
-        self._contact_valid = np.empty(0, dtype=bool)
-        self._mass_table: Any = None
-        self._gain_actuators: list[Any] = []
-        self._reset_metadata: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # Cold-path materialization
     # ------------------------------------------------------------------
 
     def init_sim(self, payload: dict[str, Any]) -> dict[str, Any]:
-        self.protocol.validate_init(payload)
         os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "1")
         self.num_envs = int(payload["num_envs"])
         self.sim_dt = float(payload["sim_dt"])
@@ -244,7 +294,6 @@ class _WorkerContext:
         import torch  # type: ignore[import-not-found]
         from isaaclab.actuators import ImplicitActuatorCfg  # type: ignore[import-not-found]
         from isaaclab.assets import Articulation, ArticulationCfg  # type: ignore[import-not-found]
-        from isaaclab.sensors import ContactSensor, ContactSensorCfg
         from isaaclab.sim.converters import (  # type: ignore[import-not-found]
             MjcfConverter,
             MjcfConverterCfg,
@@ -319,7 +368,7 @@ class _WorkerContext:
         robot_cfg = ArticulationCfg(
             prim_path="/World/envs/env_.*/Robot",
             articulation_root_prim_path=articulation_root,
-            spawn=sim_utils.UsdFileCfg(usd_path=converter.usd_path, activate_contact_sensors=True),
+            spawn=sim_utils.UsdFileCfg(usd_path=converter.usd_path),
             actuators={
                 "all": ImplicitActuatorCfg(
                     joint_names_expr=[".*"],
@@ -334,25 +383,21 @@ class _WorkerContext:
         sim_cfg = sim_utils.SimulationCfg(dt=self.sim_dt, device=self.device)
         self.sim = sim_utils.SimulationContext(sim_cfg)
         if render_mode != "none":
-            # Use IsaacSim's standard grid-world floor for rendered playback.
-            # The MJCF floor is retained for the task/physics contract, while
-            # this native floor supplies the normal IsaacSim visual ground.
+            # The native grid is visual only: training and play share exactly
+            # the same imported physical ground, including its material.
             ground_cfg = sim_utils.GroundPlaneCfg()
             ground_cfg.func("/World/defaultGroundPlane", ground_cfg)
+            from pxr import Usd, UsdPhysics
+
+            for prim in Usd.PrimRange(self.sim.stage.GetPrimAtPath("/World/defaultGroundPlane")):
+                if prim.HasAPI(UsdPhysics.CollisionAPI):
+                    UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
         # IsaacLab's SimulationContext owns the singleton simulation stage and
         # must be materialized before assets/articulations bind to it.  Keep
         # this ordering explicit so a real Kit worker does not accidentally
         # construct an Articulation against an uninitialized context.
         self.robot = Articulation(robot_cfg)
-        self.contact_sensor = ContactSensor(
-            ContactSensorCfg(
-                prim_path=_contact_sensor_path(
-                    sim_utils, self.env_prim_paths[0] + "/Robot", payload["mjcf_body_names"]
-                ),
-                update_period=0.0,
-                history_length=0,
-            )
-        )
+        ground_paths = _share_static_ground(self.sim.stage, converter.usd_path, self.env_prim_paths)
         if render_mode != "none":
             # MJCF scenes do not necessarily carry a renderer light.  This is
             # a real scene light (not a post-process or synthetic frame), and
@@ -397,6 +442,7 @@ class _WorkerContext:
                 self._physics_scene_path(),
                 "/World/collisions",
                 self.env_prim_paths,
+                global_paths=ground_paths,
             )
             self.collision_filtering_applied = True
         self.sim.reset()
@@ -424,14 +470,11 @@ class _WorkerContext:
         self.native_body_for_contract = self._build_permutation(
             self.native_body_names, self.contract_body_names, "body"
         )
-        self._bind_contact_reporter()
-        self._cache_reset_properties()
 
         keyframe_qpos = payload.get("keyframe_qpos")
         if keyframe_qpos is not None:
             self._apply_keyframe(keyframe_qpos)
         return {
-            **self._reset_metadata,
             "num_dof": self.num_dof,
             "num_bodies": self.num_bodies,
             # Expose UniLab contract order, not the importer/native order.
@@ -482,62 +525,6 @@ class _WorkerContext:
                 f"native={native}, contract={contract}"
             )
         return np.asarray([native_ids[name] for name in contract], dtype=np.int64)
-
-    def _bind_contact_reporter(self) -> None:
-        if self.contact_sensor is None or not self.contact_sensor.is_initialized:
-            raise RuntimeError("IsaacLab ContactSensor did not initialize; no contact reporter")
-        self.contact_body_for_contract = self.protocol.name_permutation(
-            list(self.contact_sensor.body_names), self.contract_body_names, "contact body"
-        )
-        self._contact_valid = np.zeros(self.num_envs, dtype=bool)
-        self.contact_sensor.reset()
-        self._contact_forces()
-
-    def _contact_forces(self) -> np.ndarray:
-        if self.contact_sensor is None:
-            raise RuntimeError("IsaacLab ContactSensor is unavailable; refusing placeholder forces")
-        forces = _tensor_numpy(self.contact_sensor.data.net_forces_w)
-        if forces.shape != (self.num_envs, self.num_bodies, 3) or not np.isfinite(forces).all():
-            raise RuntimeError("IsaacLab ContactSensor returned invalid per-link contact forces")
-        forces = forces[:, self.contact_body_for_contract, :].copy()
-        forces[~self._contact_valid] = 0.0
-        return forces
-
-    def _cache_reset_properties(self) -> None:
-        self._mass_table = self.robot.root_physx_view.get_masses().cpu().clone()
-        masses = _tensor_numpy(self._mass_table)
-        stiffness = _tensor_numpy(self.robot.data.joint_stiffness)
-        damping = _tensor_numpy(self.robot.data.joint_damping)
-        self._gain_actuators = list(self.robot.actuators.values())
-        self._reset_metadata = {
-            "protocol_version": self.protocol.PROTOCOL_VERSION,
-            "supported_reset_terms": list(self.protocol.RESET_TERMS),
-            "contact_reporter": self.protocol.CONTACT_REPORTER_ISAACSIM,
-            "nominal_body_mass": masses[0, self.native_body_for_contract].tolist(),
-            "nominal_kp": stiffness[0, self.native_joint_for_contract].tolist(),
-            "nominal_kd": damping[0, self.native_joint_for_contract].tolist(),
-        }
-
-    def _apply_reset_randomization(self, rows: np.ndarray, values: dict[str, np.ndarray]) -> None:
-        env_ids = self.torch.as_tensor(rows, dtype=self.torch.long, device=self.device)
-        if "body_mass" in values:
-            native_mass = np.empty((len(rows), self.num_bodies), dtype=np.float32)
-            native_mass[:, self.native_body_for_contract] = values["body_mass"]
-            cpu_ids = env_ids.cpu()
-            self._mass_table[cpu_ids] = _to_tensor(self.torch, native_mass, "cpu")
-            self.robot.root_physx_view.set_masses(self._mass_table, indices=cpu_ids)
-        for term, field, writer in (
-            ("kp", "stiffness", self.robot.write_joint_stiffness_to_sim),
-            ("kd", "damping", self.robot.write_joint_damping_to_sim),
-        ):
-            if term not in values:
-                continue
-            native_gain = np.empty((len(rows), self.num_dof), dtype=np.float32)
-            native_gain[:, self.native_joint_for_contract] = values[term]
-            tensor = _to_tensor(self.torch, native_gain, self.device)
-            writer(tensor, env_ids=env_ids)
-            for actuator in self._gain_actuators:
-                getattr(actuator, field)[env_ids] = tensor[:, actuator.joint_indices]
 
     @staticmethod
     def _actuator_dicts(payload: dict[str, Any], names: list[str]) -> dict[str, dict[str, float]]:
@@ -606,7 +593,6 @@ class _WorkerContext:
     def attach_slots(self, payload: dict[str, Any]) -> None:
         from multiprocessing import resource_tracker, shared_memory
 
-        self.protocol.validate_slot_specs(payload, self.num_envs, self.num_dof, self.num_bodies)
         for name, spec in payload["slots"].items():
             handle = shared_memory.SharedMemory(name=spec["shm"], create=False)
             # The host owns unlinking; prevent the worker's resource tracker
@@ -643,7 +629,10 @@ class _WorkerContext:
         np.copyto(self.slots["root_state"], root)
         np.copyto(self.slots["dof_state"], dof[:, self.native_joint_for_contract, :])
         np.copyto(self.slots["body_state"], body[:, self.native_body_for_contract, :])
-        np.copyto(self.slots["contact_force"], self._contact_forces())
+        # IsaacLab's Articulation tensor does not expose a generic net-contact
+        # force slot.  Keep the slot deterministic and let the host sensor map
+        # fail closed for contact declarations.
+        self.slots["contact_force"].fill(0.0)
 
     def step(self, payload: dict[str, Any]) -> dict[str, Any]:
         ctrl = np.asarray(self.slots["ctrl"], dtype=np.float32)
@@ -663,8 +652,6 @@ class _WorkerContext:
             self.robot.write_data_to_sim()
             self.sim.step(render=False)
             self.robot.update(self.sim_dt)
-            self.contact_sensor.update(self.sim_dt, force_recompute=True)
-        self._contact_valid[:] = True
         physics_ms = (time.perf_counter() - t0) * 1000.0
         t0 = time.perf_counter()
         self.refresh_state_slots()
@@ -678,13 +665,22 @@ class _WorkerContext:
         }
 
     def set_state(self, payload: dict[str, Any]) -> dict[str, Any]:
-        env_ids_np, qpos, qvel, values = self.protocol.read_reset(
-            payload, self.slots, self.num_envs, self.num_dof, self.num_bodies
-        )
-        count = len(env_ids_np)
-        if count == 0:
-            return {"timing": {}}
-        self._apply_reset_randomization(env_ids_np, values)
+        count = int(payload["count"])
+        if count < 0 or count > self.num_envs:
+            raise ValueError(f"reset count must be in [0, {self.num_envs}], got {count}")
+        env_ids_np = np.asarray(self.slots["reset_env_ids"][:count], dtype=np.int64)
+        qpos = np.asarray(self.slots["reset_qpos"][:count], dtype=np.float32)
+        qvel = np.asarray(self.slots["reset_qvel"][:count], dtype=np.float32)
+        if np.unique(env_ids_np).size != env_ids_np.size:
+            raise ValueError("reset environment ids must not contain duplicates")
+        if np.any(env_ids_np < 0) or np.any(env_ids_np >= self.num_envs):
+            raise ValueError("reset environment ids are out of range")
+        expected_qpos = (count, 7 + self.num_dof)
+        expected_qvel = (count, 6 + self.num_dof)
+        if qpos.shape != expected_qpos:
+            raise ValueError(f"reset qpos has shape {qpos.shape}; expected {expected_qpos}")
+        if qvel.shape != expected_qvel:
+            raise ValueError(f"reset qvel has shape {qvel.shape}; expected {expected_qvel}")
         env_ids = self.torch.as_tensor(env_ids_np, dtype=self.torch.long, device=self.device)
         root_pose_np = qpos[:, :7].copy()
         root_pose_np[:, :3] += self.env_origins[env_ids_np]
@@ -706,8 +702,6 @@ class _WorkerContext:
             env_ids=env_ids,
         )
         self.robot.reset(env_ids)
-        self.contact_sensor.reset(env_ids)
-        self._contact_valid[env_ids_np] = False
         self.robot.update(self.sim_dt)
         t0 = time.perf_counter()
         self.refresh_state_slots()
@@ -720,7 +714,6 @@ class _WorkerContext:
 
     def get_meta(self) -> dict[str, Any]:
         return {
-            **self._reset_metadata,
             "num_dof": self.num_dof,
             "num_bodies": self.num_bodies,
             "dof_names": list(self.contract_joint_names),
@@ -885,16 +878,7 @@ class _WorkerContext:
         }
 
     def shutdown(self) -> None:
-        """Remove IsaacLab's STOP callback before Kit closes the USD stage."""
-        if self.sim is not None:
-            self.sim.clear_all_callbacks()
-            self.sim.clear_instance()
-            self.sim = None
         self.camera = None
-        self.contact_sensor = None
-        self.robot = None
-        self._gain_actuators = []
-        self._mass_table = None
         for handle in self._shm_handles:
             try:
                 handle.close()

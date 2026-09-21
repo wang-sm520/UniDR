@@ -90,6 +90,7 @@ class GenesisBackend(SimBackend):
         constraint_solver: str | None = None,
         friction_cone: str | None = None,
         solver_iterations: int | None = None,
+        enable_self_collision: bool | None = None,
         **unexpected_kwargs: Any,
     ) -> None:
         if unexpected_kwargs:
@@ -99,6 +100,8 @@ class GenesisBackend(SimBackend):
             raise ValueError(f"num_envs must be a positive integer, got {num_envs!r}")
         if float(sim_dt) <= 0.0:
             raise ValueError(f"sim_dt must be positive, got {sim_dt!r}")
+        if enable_self_collision is not None and not isinstance(enable_self_collision, bool):
+            raise TypeError("genesis enable_self_collision must be bool or None")
         if solver_iterations is not None and (
             isinstance(solver_iterations, bool)
             or not isinstance(solver_iterations, int)
@@ -150,6 +153,7 @@ class GenesisBackend(SimBackend):
             constraint_solver=constraint_solver,
             friction_cone=friction_cone,
             solver_iterations=solver_iterations,
+            enable_self_collision=enable_self_collision,
         )
         self._entity = self._scene.add_entity(
             self._gs.morphs.MJCF(file=self._metadata.source_model_file)
@@ -494,6 +498,10 @@ class GenesisBackend(SimBackend):
                 raise ValueError(f"Body {name!r} not found in genesis model") from exc
         return np.asarray(resolved, dtype=np.int32)
 
+    def get_motion_body_ids(self, names: Sequence[str]) -> np.ndarray:
+        # Genesis metadata already includes MJCF worldbody at index 0.
+        return self.get_body_ids(names)
+
     def get_geom_contact_masks(self) -> tuple[np.ndarray, np.ndarray]:
         """Genesis-native recoded contype/conaffinity of collision geoms.
 
@@ -649,7 +657,6 @@ class GenesisBackend(SimBackend):
         qvel: np.ndarray,
         randomization: ResetRandomizationPayload | None = None,
     ) -> dict[str, dict[str, float]]:
-        """Apply absolute DR before rebuilding mass-dependent forward caches."""
         if randomization is not None:
             unsupported = self.get_dr_capabilities().get_unsupported_reset_terms(
                 randomization.requested_terms()
@@ -677,8 +684,6 @@ class GenesisBackend(SimBackend):
         outer_t0 = time.perf_counter()
         envs_idx = rows.tolist()
         t0 = time.perf_counter()
-        if randomization is not None and not randomization.is_empty():
-            self._apply_reset_randomization(randomization, rows)
         # set_qpos runs forward kinematics for the touched envs, so positions
         # are immediately readable afterwards (REPORT §5.6).
         self._entity.set_qpos(self._to_device(qpos_array), envs_idx=envs_idx, zero_velocity=False)
@@ -686,6 +691,8 @@ class GenesisBackend(SimBackend):
         timing["set_state_reset_upload_ms"] = (time.perf_counter() - t0) * 1000.0
 
         t0 = time.perf_counter()
+        if randomization is not None and not randomization.is_empty():
+            self._apply_reset_randomization(randomization, rows)
         self._refresh_host_cache()
         self._time_cache[rows] = 0.0
         timing["set_state_host_cache_refresh_ms"] = (time.perf_counter() - t0) * 1000.0
@@ -1096,10 +1103,8 @@ class GenesisBackend(SimBackend):
 
     def get_base_ang_vel(self) -> np.ndarray:
         self._require_free_root("get_base_ang_vel")
-        # qvel[3:6] is body-frame angular velocity; the contract wants world
-        # frame.  Deriving it from qvel keeps the value fresh after reset
-        # (genesis link velocity getters only refresh across a step barrier,
-        # REPORT §5.6); it equals get_links_ang(root) after a step.
+        # Free-root qvel stores body-frame angular velocity; expose world-frame
+        # components using the current quaternion, including immediately after reset.
         return np_quat_apply_batched(self.get_base_quat(), self._qvel_cache[1][:, 3:6])
 
     def get_dof_pos(self) -> np.ndarray:

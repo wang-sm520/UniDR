@@ -121,8 +121,6 @@ def _parser_choices(command: str) -> dict[str, tuple[str, ...]]:
 
 
 def _sim_from_owner(owner: str) -> str | None:
-    if owner == "multisim":
-        return owner
     for sim in cli.SUPPORTED_SIMS:
         if owner == sim or owner.startswith(f"{sim}_"):
             return sim

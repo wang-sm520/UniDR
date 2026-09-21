@@ -131,6 +131,15 @@ def _motrix_world_link_names(world: World) -> list[str]:
     return names
 
 
+def _disable_motrix_robot_self_collision(world: World, base_name: str) -> None:
+    """Disable only the named articulation's internal contacts before compilation."""
+    roots = [body.link for body in world.hierarchy.bodies if body.link.name == base_name]
+    if len(roots) != 1:
+        raise ValueError(f"Expected one Motrix articulation root named {base_name!r}")
+    # Native MSD flag affects descendants, not terrain or other articulation contacts.
+    roots[0].disable_self_collision = True
+
+
 def add_motrix_tracking_frame_sensors(world: World, *, base_name: str) -> None:
     """Add Motrix-native frame sensors matching the legacy tracking sensor contract.
 
@@ -172,6 +181,7 @@ def _materialize_motrix_scene_with_sensor_names(
     fragment_files: Sequence[str] = (),
     add_body_sensors: bool = False,
     base_name: str = "base",
+    disable_self_collision: bool = False,
 ) -> tuple["SceneModel", tuple[str, ...]]:
     """Build a Motrix model and return its validated cold-path sensor names."""
     import motrixsim.msd as msd
@@ -187,6 +197,8 @@ def _materialize_motrix_scene_with_sensor_names(
             _attach_motrix_scene_fragment(world, fragment_path)
         if add_body_sensors:
             add_motrix_tracking_frame_sensors(world, base_name=base_name)
+        if disable_self_collision:
+            _disable_motrix_robot_self_collision(world, base_name)
         model = msd.build(world)
         return model, _motrix_sensor_names(world)
     finally:
@@ -219,6 +231,7 @@ def _materialize_motrix_hfield_attached_scene_with_sensor_names(
     add_body_sensors: bool = False,
     base_name: str = "base",
     return_surface_sampler: bool = False,
+    disable_self_collision: bool = False,
 ) -> tuple[SceneModel, np.ndarray, object | None, tuple[str, ...]]:
     """Build a Motrix terrain model and return its cold-path sensor names."""
     import motrixsim.msd as msd
@@ -270,6 +283,8 @@ def _materialize_motrix_hfield_attached_scene_with_sensor_names(
         _attach_motrix_scene_fragment(world, fragment_path)
     if add_body_sensors:
         add_motrix_tracking_frame_sensors(world, base_name=base_name)
+    if disable_self_collision:
+        _disable_motrix_robot_self_collision(world, base_name)
 
     model = msd.build(world)
     sampler = generated.surface_sampler() if return_surface_sampler else None

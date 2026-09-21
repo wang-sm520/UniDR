@@ -190,7 +190,6 @@ class ExperimentTracker:
         device: str | None = None,
         collector_device: str | None = None,
         seed_info: Any | None = None,
-        extra_metadata: dict[str, Any] | None = None,
     ):
         self.root_dir = Path(root_dir)
         self.log_dir = Path(log_dir)
@@ -202,7 +201,6 @@ class ExperimentTracker:
         self.device = device
         self.collector_device = collector_device
         self.seed_info = seed_info
-        self.extra_metadata = extra_metadata or {}
         self.enabled = str(_cfg_get(training_cfg, "logger", "tensorboard")).lower() == "wandb"
 
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -266,7 +264,7 @@ class ExperimentTracker:
 
         payload = write_run_config_snapshot(
             self.log_dir,
-            run_metadata={**metadata, **self.extra_metadata},
+            run_metadata=metadata,
             full_cfg=self.full_cfg,
             contract_snapshot=extract_contract_snapshot(self.full_cfg),
         )

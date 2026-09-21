@@ -19,14 +19,14 @@ import importlib.util
 import os
 import sys
 import time
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 
-def _load_protocol(path: str) -> Any:
-    """Load the shared protocol module by file path (no package import)."""
-    spec = importlib.util.spec_from_file_location("unisim_subprocess_protocol", path)
+def _load_module(path: str, name: str) -> Any:
+    """Load a worker dependency by file path (no package import)."""
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load protocol module from {path!r}")
     module = importlib.util.module_from_spec(spec)
@@ -60,13 +60,10 @@ class _WorkerContext:
         self._dof_state: Any = None
         self._body_state: Any = None
         self._contact_force: Any = None
-        self._tensors_need_refresh = True
-        self._pending_reset_env_ids: Set[int] = set()
-        self._reset_actor_indices: Any = None
-        self._body_properties: List[Any] = []
-        self._dof_properties: List[Any] = []
-        self._reset_metadata: Dict[str, Any] = {}
-        self._contact_valid = np.empty(0, dtype=bool)
+        self._reset_kinematics: Any = None
+        self._initial_reset: Any = None
+        self._pending_reset_rows: Any = None
+        self._body_com: Any = None
         # Native rendering state (viewer and/or camera sensor).  Both live in
         # this process because the sim handle does.
         self.graphics_device_id = -1
@@ -86,14 +83,6 @@ class _WorkerContext:
     # ------------------------------------------------------------------ #
 
     def init_sim(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Create PhysX with CPU state tensors and the requested solver device.
-
-        Preview 4 runtime rigid-body mass writes invalidate root resets on the
-        GPU tensor pipeline, even for unchanged masses. CPU tensors preserve
-        those resets while PhysX still runs on the requested GPU. The IPC
-        boundary already exchanges host arrays; no physics step is added.
-        """
-        self.protocol.validate_init(payload)
         isaacgym_python = payload["isaacgym_python"]
         if isaacgym_python not in sys.path:
             sys.path.insert(0, isaacgym_python)
@@ -107,10 +96,11 @@ class _WorkerContext:
 
         gymapi = self.gymapi
         self.num_envs = int(payload["num_envs"])
+        self._pending_reset_rows = np.zeros(self.num_envs, dtype=bool)
         self.sim_dt = float(payload["sim_dt"])
         device_id = int(payload.get("device_id", 0))
-        self.use_gpu_pipeline = False
-        self.device = "cpu"
+        self.use_gpu_pipeline = device_id >= 0
+        self.device = "cuda:%d" % device_id if self.use_gpu_pipeline else "cpu"
 
         self.gym = gymapi.acquire_gym()
         sim_params = gymapi.SimParams()
@@ -122,12 +112,12 @@ class _WorkerContext:
         sim_params.physx.num_position_iterations = 4
         sim_params.physx.num_velocity_iterations = 1
         sim_params.physx.num_threads = 0
-        sim_params.physx.use_gpu = device_id >= 0
+        sim_params.physx.use_gpu = self.use_gpu_pipeline
         sim_params.use_gpu_pipeline = self.use_gpu_pipeline
         # The graphics context is enabled whenever the sim runs on a GPU
         # device.  It opens no window by itself (only create_viewer does) and
         # is required for both the interactive viewer and headless camera
-        # capture; the cost for training-only runs is negligible. CPU-only
+        # capture; the cost for training-only runs is negligible.  CPU-pipeline
         # sims get no graphics context and fail closed on render requests.
         self.graphics_device_id = device_id if device_id >= 0 else -1
         self.sim = self.gym.create_sim(
@@ -164,16 +154,12 @@ class _WorkerContext:
         self.num_dof = int(self.gym.get_asset_dof_count(asset))
         self.num_bodies = int(self.gym.get_asset_rigid_body_count(asset))
         self.dof_names: List[str] = list(self.gym.get_asset_dof_names(asset))
-        self.body_names = list(self.gym.get_asset_rigid_body_names(asset))
-        self.contract_joint_names = list(payload["mjcf_joint_names"])
-        self.contract_body_names = list(payload["mjcf_body_names"])
-        self.native_joint_for_contract = self.protocol.name_permutation(
-            self.dof_names, self.contract_joint_names, "joint"
+        kinematics = _load_module(
+            os.path.join(os.path.dirname(__file__), "kinematics.py"), "unisim_isaacgym_kinematics"
         )
-        self.native_body_for_contract = self.protocol.name_permutation(
-            self.body_names, self.contract_body_names, "body"
+        self._reset_kinematics = kinematics.ResetKinematics(
+            model_file, list(self.gym.get_asset_rigid_body_names(asset)), self.dof_names
         )
-        self._contact_valid = np.zeros(self.num_envs, dtype=bool)
 
         dof_props = self.gym.get_asset_dof_properties(asset)
         # Position-controlled dofs: ctrl is the per-dof position target,
@@ -205,7 +191,10 @@ class _WorkerContext:
             self.env_handles.append(env_handle)
             self.actor_handles.append(actor_handle)
 
-        self._cache_reset_properties()
+        properties = self.gym.get_actor_rigid_body_properties(
+            self.env_handles[0], self.actor_handles[0]
+        )
+        self._body_com = np.asarray([[p.com.x, p.com.y, p.com.z] for p in properties])
         self.gym.prepare_sim(self.sim)
         self._acquire_tensors()
         self._refresh_tensors()
@@ -220,63 +209,17 @@ class _WorkerContext:
         upper = np.asarray(dof_props["upper"], dtype=np.float64)
         effort = np.asarray(dof_props["effort"], dtype=np.float64)
         return {
-            **self._reset_metadata,
             "num_dof": self.num_dof,
             "num_bodies": self.num_bodies,
-            "dof_names": list(self.contract_joint_names),
-            "body_names": list(self.contract_body_names),
-            "dof_lower": lower[self.native_joint_for_contract].tolist(),
-            "dof_upper": upper[self.native_joint_for_contract].tolist(),
-            "effort": effort[self.native_joint_for_contract].tolist(),
+            "dof_names": list(self.dof_names),
+            "body_names": list(self.gym.get_asset_rigid_body_names(asset)),
+            "dof_lower": lower.tolist(),
+            "dof_upper": upper.tolist(),
+            "effort": effort.tolist(),
             "gravity": [0.0, 0.0, -9.81],
             "use_gpu_pipeline": self.use_gpu_pipeline,
             "graphics_enabled": self.graphics_device_id >= 0,
         }
-
-    def _cache_reset_properties(self) -> None:
-        self._body_properties = [
-            self.gym.get_actor_rigid_body_properties(env, actor)
-            for env, actor in zip(self.env_handles, self.actor_handles)
-        ]
-        self._dof_properties = [
-            self.gym.get_actor_dof_properties(env, actor)
-            for env, actor in zip(self.env_handles, self.actor_handles)
-        ]
-        masses = np.asarray([prop.mass for prop in self._body_properties[0]])
-        self._reset_metadata = {
-            "protocol_version": self.protocol.PROTOCOL_VERSION,
-            "supported_reset_terms": list(self.protocol.RESET_TERMS),
-            "contact_reporter": self.protocol.CONTACT_REPORTER_ISAACGYM,
-            "nominal_body_mass": masses[self.native_body_for_contract].tolist(),
-            "nominal_kp": self._dof_properties[0]["stiffness"][
-                self.native_joint_for_contract
-            ].tolist(),
-            "nominal_kd": self._dof_properties[0]["damping"][
-                self.native_joint_for_contract
-            ].tolist(),
-        }
-
-    def _apply_reset_randomization(
-        self,
-        env_ids: np.ndarray,
-        values: Dict[str, np.ndarray],
-    ) -> None:
-        for row, env_id in enumerate(env_ids):
-            env = self.env_handles[env_id]
-            actor = self.actor_handles[env_id]
-            if "body_mass" in values:
-                properties = self._body_properties[env_id]
-                for column, native_id in enumerate(self.native_body_for_contract):
-                    properties[native_id].mass = float(values["body_mass"][row, column])
-                if not self.gym.set_actor_rigid_body_properties(env, actor, properties, False):
-                    raise RuntimeError("IsaacGym rejected selected-environment body mass reset")
-            if "kp" in values or "kd" in values:
-                properties = self._dof_properties[env_id]
-                for term, field in (("kp", "stiffness"), ("kd", "damping")):
-                    if term in values:
-                        properties[field][self.native_joint_for_contract] = values[term][row]
-                if not self.gym.set_actor_dof_properties(env, actor, properties):
-                    raise RuntimeError("IsaacGym rejected selected-environment gain reset")
 
     def _apply_actuator_props(self, dof_props: Any, payload: Dict[str, Any]) -> None:
         """Set per-dof PD/limit/dynamics properties from the host MJCF scan.
@@ -359,7 +302,11 @@ class _WorkerContext:
         dof[:, :, 0] = dof_pos
         dof_view = self._dof_state.view(self.num_envs, self.num_dof, 2)
         dof_view[:, :, :] = torch.from_numpy(dof).to(self.device)
-        self._pending_reset_env_ids.update(range(self.num_envs))
+        self._pending_reset_rows[:] = True
+        # Gym tensor setters are deferred until simulate. Publish the supplied
+        # state using cached FK after the host attaches its shared-memory slots.
+        root[:, 3:7] = protocol.xyzw_to_wxyz(root[:, 3:7])
+        self._initial_reset = (root, dof)
 
     def _acquire_tensors(self) -> None:
         gym = self.gym
@@ -382,7 +329,6 @@ class _WorkerContext:
         """
         from multiprocessing import resource_tracker, shared_memory  # noqa: PLC0415
 
-        self.protocol.validate_slot_specs(payload, self.num_envs, self.num_dof, self.num_bodies)
         for name, spec in payload["slots"].items():
             handle = shared_memory.SharedMemory(name=spec["shm"], create=False)
             resource_tracker.unregister(handle._name, "shared_memory")  # type: ignore[attr-defined]
@@ -391,43 +337,27 @@ class _WorkerContext:
             )
             self.slots[name] = array
             self._shm_handles.append(handle)
-        self.refresh_state_slots()
+        if self._initial_reset is None:
+            self.refresh_state_slots()
+        else:
+            self._publish_reset(np.arange(self.num_envs), *self._initial_reset)
+            self._initial_reset = None
 
     # ------------------------------------------------------------------ #
     # State exchange
     # ------------------------------------------------------------------ #
 
     def _refresh_tensors(self) -> None:
-        if not self._tensors_need_refresh:
-            return
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
-        self._tensors_need_refresh = False
-
-    def _commit_pending_reset(self) -> None:
-        """Submit each GPU setter once per simulate, retaining its index storage."""
-        if not self._pending_reset_env_ids:
-            return
-        indices = np.asarray(sorted(self._pending_reset_env_ids), dtype=np.int32)
-        self._reset_actor_indices = self.torch.from_numpy(indices).to(self.device)
-        self.gym.set_actor_root_state_tensor_indexed(
-            self.sim,
-            self.gymtorch.unwrap_tensor(self._root_state),
-            self.gymtorch.unwrap_tensor(self._reset_actor_indices),
-            len(indices),
-        )
-        self.gym.set_dof_state_tensor_indexed(
-            self.sim,
-            self.gymtorch.unwrap_tensor(self._dof_state),
-            self.gymtorch.unwrap_tensor(self._reset_actor_indices),
-            len(indices),
-        )
-        self._pending_reset_env_ids.clear()
 
     def refresh_state_slots(self) -> None:
         """Copy the latest tensor state into every host-visible shm slot."""
+        if self._pending_reset_rows is not None and self._pending_reset_rows.any():
+            # REFRESH cannot replace staged resets with the previous native state.
+            return
         protocol = self.protocol
         self._refresh_tensors()
         root = self._root_state.view(self.num_envs, -1, 13)[:, 0, :].cpu().numpy()
@@ -435,39 +365,45 @@ class _WorkerContext:
         root_slot[:, 0:3] = root[:, 0:3]
         root_slot[:, 3:7] = protocol.xyzw_to_wxyz(root[:, 3:7])
         root_slot[:, 7:13] = root[:, 7:13]
+        root_slot[:, 7:10] -= np.cross(
+            root_slot[:, 10:13], protocol.quat_rotate(root_slot[:, 3:7], self._body_com[0])
+        )
         np.copyto(
             self.slots["dof_state"],
-            self._dof_state.view(self.num_envs, self.num_dof, 2)
-            .cpu()
-            .numpy()[:, self.native_joint_for_contract, :],
+            self._dof_state.view(self.num_envs, self.num_dof, 2).cpu().numpy(),
         )
-        bodies = (
-            self._body_state.view(self.num_envs, self.num_bodies, 13)
-            .cpu()
-            .numpy()[:, self.native_body_for_contract, :]
-        )
+        bodies = self._body_state.view(self.num_envs, self.num_bodies, 13).cpu().numpy()
         body_slot = self.slots["body_state"]
         body_slot[:, :, 0:3] = bodies[:, :, 0:3]
         body_slot[:, :, 3:7] = protocol.xyzw_to_wxyz(bodies[:, :, 3:7])
         body_slot[:, :, 7:13] = bodies[:, :, 7:13]
+        # Gym reports link poses but COM velocities; the public contract uses
+        # velocities at link origins, including the free root.
+        body_slot[:, :, 7:10] -= np.cross(
+            body_slot[:, :, 10:13],
+            protocol.quat_rotate(body_slot[:, :, 3:7], self._body_com),
+        )
         np.copyto(
             self.slots["contact_force"],
-            self._contact_force.view(self.num_envs, self.num_bodies, 3)
-            .cpu()
-            .numpy()[:, self.native_body_for_contract, :],
+            self._contact_force.view(self.num_envs, self.num_bodies, 3).cpu().numpy(),
         )
-        self.slots["contact_force"][~self._contact_valid] = 0.0
+
+    def _publish_reset(self, env_ids: np.ndarray, root: np.ndarray, dof: np.ndarray) -> None:
+        """Update selected caches without refreshing deferred Gym tensor setters."""
+        self.slots["root_state"][env_ids] = root
+        self.slots["dof_state"][env_ids] = dof
+        self.slots["body_state"][env_ids] = self._reset_kinematics.evaluate(root, dof)
+        # Contacts require a physics solve; never expose forces from the previous pose.
+        self.slots["contact_force"][env_ids] = 0
 
     def step(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         nsteps = int(payload["nsteps"])
         if nsteps <= 0:
-            raise ValueError("nsteps must be positive, got %d" % nsteps)
+            raise ValueError("IsaacGym STEP requires nsteps > 0")
         timings: Dict[str, float] = {}
         t0 = time.perf_counter()
-        self._commit_pending_reset()
-        native_ctrl = np.empty_like(self.slots["ctrl"])
-        native_ctrl[:, self.native_joint_for_contract] = self.slots["ctrl"]
-        torch_ctrl = self.torch.from_numpy(native_ctrl).to(self.device)
+        self._flush_reset_writes()
+        torch_ctrl = self.torch.from_numpy(np.ascontiguousarray(self.slots["ctrl"])).to(self.device)
         # ctrl carries per-dof position targets (MuJoCo <position> actuator
         # semantics); PhysX runs the PD loop with the INIT-time kp/kv/effort.
         self.gym.set_dof_position_target_tensor(
@@ -479,8 +415,6 @@ class _WorkerContext:
         for _ in range(nsteps):
             self.gym.simulate(self.sim)
             self.gym.fetch_results(self.sim, True)
-        self._tensors_need_refresh = True
-        self._contact_valid[:] = True
         timings["physics_ms"] = (time.perf_counter() - t0) * 1000.0
 
         t0 = time.perf_counter()
@@ -488,18 +422,36 @@ class _WorkerContext:
         timings["state_refresh_ms"] = (time.perf_counter() - t0) * 1000.0
         return {"timing": timings}
 
+    def _flush_reset_writes(self) -> None:
+        # Gym permits each tensor setter only once between simulate calls.
+        # Multiple partial resets (including INIT then motion reset) coalesce here.
+        rows = np.flatnonzero(self._pending_reset_rows).astype(np.int32)
+        if not len(rows):
+            return
+        ids = self.torch.from_numpy(rows).to(self.device)
+        self.gym.set_actor_root_state_tensor_indexed(
+            self.sim,
+            self.gymtorch.unwrap_tensor(self._root_state),
+            self.gymtorch.unwrap_tensor(ids),
+            len(rows),
+        )
+        self.gym.set_dof_state_tensor_indexed(
+            self.sim,
+            self.gymtorch.unwrap_tensor(self._dof_state),
+            self.gymtorch.unwrap_tensor(ids),
+            len(rows),
+        )
+        self._pending_reset_rows[:] = False
+
     def set_state(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         protocol = self.protocol
         torch = self.torch
         timings: Dict[str, float] = {}
         t0 = time.perf_counter()
-        env_ids, qpos, qvel, values = protocol.read_reset(
-            payload, self.slots, self.num_envs, self.num_dof, self.num_bodies
-        )
-        count = len(env_ids)
-        if count == 0:
-            return {"timing": timings}
-        self._apply_reset_randomization(env_ids, values)
+        count = int(payload["count"])
+        env_ids = np.ascontiguousarray(self.slots["reset_env_ids"][:count])
+        qpos = np.ascontiguousarray(self.slots["reset_qpos"][:count])
+        qvel = np.ascontiguousarray(self.slots["reset_qvel"][:count])
 
         root = np.zeros((count, 13), dtype=np.float32)
         root[:, 0:3] = qpos[:, 0:3]
@@ -508,30 +460,32 @@ class _WorkerContext:
         # Contract qvel carries body-frame angular velocity; IsaacGym root
         # states take world-frame angular velocity.
         root[:, 10:13] = protocol.quat_rotate(qpos[:, 3:7], qvel[:, 3:6]).astype(np.float32)
+        root[:, 7:10] += np.cross(
+            root[:, 10:13], protocol.quat_rotate(qpos[:, 3:7], self._body_com[0])
+        )
+        # Stage indexed writes in the wrapped buffers. STEP commits their union
+        # once; one actor per env makes the global actor index equal the env ID.
         env_id_tensor = torch.from_numpy(env_ids.astype(np.int32)).to(self.device)
         root_view = self._root_state.view(self.num_envs, -1, 13)
         root_view[env_id_tensor.long(), 0, :] = torch.from_numpy(root).to(self.device)
 
         dof = np.zeros((count, self.num_dof, 2), dtype=np.float32)
-        dof[:, self.native_joint_for_contract, 0] = qpos[:, 7 : 7 + self.num_dof]
-        dof[:, self.native_joint_for_contract, 1] = qvel[:, 6 : 6 + self.num_dof]
+        dof[:, :, 0] = qpos[:, 7 : 7 + self.num_dof]
+        dof[:, :, 1] = qvel[:, 6 : 6 + self.num_dof]
         dof_view = self._dof_state.view(self.num_envs, self.num_dof, 2)
         dof_view[env_id_tensor.long(), :, :] = torch.from_numpy(dof).to(self.device)
-        self._pending_reset_env_ids.update(env_ids.tolist())
+        self._pending_reset_rows[env_ids] = True
         timings["set_state_reset_upload_ms"] = (time.perf_counter() - t0) * 1000.0
 
-        # IsaacGym has no kinematics-only forward call; root/dof slots reflect
-        # the applied state immediately, while body/contact slots stay as of
-        # the last physics step until the next STEP.
         t0 = time.perf_counter()
-        self._contact_valid[env_ids] = False
-        self.refresh_state_slots()
+        root[:, 3:7] = qpos[:, 3:7]
+        root[:, 7:10] = qvel[:, :3]
+        self._publish_reset(env_ids, root, dof)
         timings["set_state_host_cache_refresh_ms"] = (time.perf_counter() - t0) * 1000.0
         return {"timing": timings}
 
     def get_meta(self) -> Dict[str, Any]:
         return {
-            **self._reset_metadata,
             "num_dof": self.num_dof,
             "num_bodies": self.num_bodies,
             "use_gpu_pipeline": self.use_gpu_pipeline,
@@ -702,7 +656,7 @@ def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--protocol", required=True, help="path to protocol.py")
     args = parser.parse_args(argv)
-    protocol = _load_protocol(args.protocol)
+    protocol = _load_module(args.protocol, "unisim_subprocess_protocol")
     ctx = _WorkerContext(protocol)
 
     stdin = sys.stdin.buffer

@@ -2,38 +2,112 @@
 
 ## Unreleased
 
-- Coalesce IsaacGym root/DOF tensor resets before the next physics step and
-  refresh only after simulation, respecting the SDK's GPU setter ordering
-  and index-tensor lifetime rules. Repeated G1 mass resets remain finite.
-- Keep IsaacGym PhysX on the selected GPU but use CPU state tensors: Preview
-  4 runtime mass writes corrupt subsequent root resets with the GPU tensor
-  pipeline. Native G1 grounded/airborne contacts and mass-reset trajectories
-  now pass; full-scale throughput remains unmeasured.
-- Apply Genesis absolute reset randomization before rebuilding forward
-  kinematics and mass-dependent COM/spatial-inertia caches, so the first
-  post-reset step does not use the previous mass configuration.
-- Clear IsaacLab simulation callbacks and its singleton before closing the
-  Kit stage, preventing headless shutdown from entering the STOP callback's
-  render loop. Native readback probes now reuse adapter runtime discovery
-  and worker library environments.
-- Implement M1 selected-environment IsaacGym and IsaacSim reset randomization
-  for absolute `body_mass`, `kp`, and `kd` payloads. Cache nominal native
-  metadata and importer name mappings at materialization, preserve inertia,
-  and leave unselected rows and omitted terms unchanged. `get_body_mass()`
-  exposes a detached nominal table; capability queries negotiate with the
-  worker before advertising support.
-- Upgrade the shared Python-3.8-compatible subprocess wire protocol to version
-  2 with mass/gain shared-memory reset slots and mandatory version/capability
-  metadata. Old or incomplete workers fail closed. Native randomized-reset
-  failures invalidate the worker because SDK writes cannot be rolled back.
-- Replace IsaacSim's placeholder contact-force slot with IsaacLab
-  `ContactSensor` reporting, mapped by link names. Host contact sensors require
-  the matching reporter handshake. Selected reset rows stay clear until a
-  physics step publishes fresh contact data.
-- Add NumPy-only worker/IPC regression tests and opt-in native property
-  readback tests. Native G1 physics-effect acceptance remains separate and is
-  not claimed on hosts with unavailable GPUs; see
-  [the Isaac reset contract](docs/isaac-reset-contract.md).
+- Share imported static horizontal collision planes across IsaacSim clones,
+  retaining their composed transforms and materials. Remove importer-only ground
+  articulations and keep playback's decorative grid non-colliding. This avoids
+  quadratic collision-pair pressure from replicated infinite floors.
+- Persist Isaac worker stderr and fail closed on explicit PhysX lost-interaction,
+  contact-buffer, collision-stack or allocation errors, even when STEP replies
+  normally. Diagnostics use an independent incremental reader and retain logs
+  after worker/shared-memory cleanup.
+
+- Add optional `motrix_disable_self_collision` and `genesis_enable_self_collision`
+  factory settings. Motrix filters the named root articulation on the MSD cold
+  path; Genesis uses its native rigid option. Both preserve robot-ground contacts
+  and retain existing behavior when unset.
+
+- Include angular-motion velocity at offset velocimeter sites in both Isaac
+  adapters before rotating measurements into the sensor frame.
+
+- Correct IsaacGym/IsaacSim motion body indices to account for the dataset's
+  leading worldbody slot, and expose the existing world-inclusive mapping on
+  Genesis. Motion references now select the named robot bodies consistently.
+- Make IsaacGym reset observations current through cached MJCF kinematics,
+  coalesce partial reset tensor writes before the next physics step, and convert
+  native COM velocities to the public link-origin convention. Selected reset
+  contact forces are cleared until the next physics solve.
+
+## 1.3.0 - 2026-09-13
+
+- Implement fixed model variants in the MuJoCo CPU adapter. Construction-time
+  `SceneCfg.fixed_variant_plan` is independently compiled for oracle/default
+  extraction, layout-validated, merged
+  through mjbatch `VariantPack`, and realized with per-world expanded model
+  fields. Same-layout variants and uniform-public-layout optional mesh slots are
+  supported; heterogeneous public topology fails closed. The adapter now exposes
+  canonical/per-world reset defaults, additional curated reset terms (geometry
+  solver fields, DoF damping/friction, and per-variant actuator tables), per-env
+  compiler defaults on reset, and per-env playback without retaining one full
+  compiled model per variant.
+- Add the backend-neutral fixed-variant contract needed for per-env model
+  identity. `FixedVariantPlan` carries a final read-only assignment, complete
+  materialized `ModelSourceDescriptor` entries, and a same-layout/uniform-public
+  layout declaration; it uses only stdlib and NumPy data and preserves its
+  read-only assignment across pickle. `DomainRandomizationCapabilities` now
+  advertises fixed-variant layouts and per-env playback, while
+  `SceneCfg.fixed_variant_plan` is the sole construction-time lifecycle input.
+  `SimBackend.get_reset_term_default()` defines
+  authoritative canonical or per-world default exposure. The legacy
+  `InitRandomizationPlan`, `ModelVariantSpec`, and `GeomSizeOverride`
+  init-lifecycle API is removed. Contract tests cover negotiation and
+  fail-closed behavior without exposing mjbatch, MuJoCo, or Warp objects.
+- Implement construction-time fixed variants in the MJWarp adapter. Each complete
+  MJCF source is compiled independently as the correctness oracle, validated
+  against `same_layout` or `uniform_public_layout`, and merged into one canonical
+  asset pool with stable named geom slots. After `put_model` and model-field
+  expansion but before the first forward and CUDA-graph capture, the adapter
+  installs per-world `geom_dataid`, `geom_matid`, and the eleven mesh-dependent
+  model fields. Host reset mirrors and reset-term defaults use the assigned
+  variant rows, and playback resolves each world to its source model. Variant
+  identity is accepted only at construction because replacing an initialized
+  Warp model would invalidate captured pointers.
+- Consume the published `mjbatch-uni~=0.2.0` executor API; the integration-only
+  git dependency is removed.
+
+## 1.2.1 - 2026-09-13
+
+- **Breaking (mujoco executor):** the MuJoCo adapter's native batch executor is
+  now the unilabsim `mjbatch` fork (`mjbatch.Batch`, published on PyPI as
+  `mjbatch-uni~=0.1.0` and pulled in by the `mujoco` extra), replacing the
+  `mujoco-uni-runtime` `BatchEnvPool`. Canonical state storage is the batch's
+  bound per-field views (`time`/`qpos`/`qvel`/`act`/`ctrl` bound at the
+  configured numpy dtype, `xfrc_applied`/`qacc_warmstart` native float64,
+  `sensordata` at the configured dtype); the adapter no longer ships full
+  state rows to the pool or maintains a host FULLPHYSICS array. Behavioral
+  contract (each with dedicated tests in `tests/test_mujoco_batch.py`):
+  `xfrc_applied` is written absolutely before every dispatch (an idle step
+  writes zeros, so staged wrenches cannot persist in the now-batch-persistent
+  channel); warmstart is structurally zeroed on `set_state` (`Batch.reset`
+  runs `mj_resetData` before overlaying per-field writes) and explicitly on
+  the interval velocity-delta path; state layout offsets are derived from
+  `mujoco.mj_stateSize` per component instead of hardcoded FULLPHYSICS
+  offsets. The pre-step control hook is driven by mjbatch's native
+  per-substep callback (`fn(k, state_view, ctrl_view)`; sensordata stays one
+  substep behind qpos/qvel, matching `post_step_forward_sensor=False`, the
+  only mode the previous executor's default served).
+- **Breaking (mujoco):** per-env model variants are no longer supported
+  (`apply_init_randomization` model-variant plans now fail closed via the
+  base class); field-level reset randomization uses mjbatch `expand` views +
+  `set_const` (lazy first expansion allocates one model copy per worker
+  thread, so DR tasks pay `nthread x model` memory instead of
+  `num_envs x model`). `get_physics_state` snapshots are exactly
+  `[time, qpos, qvel]` per row (the old rows carried a FULLPHYSICS tail),
+  which also fixes the previous length mismatch for `na > 0` models in the
+  offline render workers. Height scanning and site Jacobians run as mjbatch
+  query ops on the live state; query ops skip the bound-field CopyOut, so the
+  bound views are untouched by the calls. The height scanner is
+  `output="height"`-only on this backend and passes `alignment` through to
+  mjbatch (`"world"`/`"yaw"`).
+- **Breaking (mujoco):** `post_step_forward_sensor` is removed end to end
+  (its only `True` behavior is unreachable on the new executor); the chunk
+  tuner is deleted entirely (`chunk_size`/`adaptive_chunk_size` are
+  warn-and-ignore `DeprecationWarning` shims at the factory, and
+  `bench_nsteps` is accepted and ignored by the factory).
+  Models with `sleep` enabled now fail fast at `Batch` construction.
+- Playback model resolution no longer maps per-env variant geom sizes: one
+  visual model file (or one saved mjb) serves every rendered env, and
+  `materialize_visual_playback_model` is removed from the mujoco package
+  exports.
 
 ## 1.2.0 - 2026-09-10
 

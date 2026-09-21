@@ -162,8 +162,6 @@ def test_protocol_slot_layout() -> None:
     assert shapes["reset_env_ids"] == (4,)
     assert shapes["reset_qpos"] == (4, 10)
     assert shapes["reset_qvel"] == (4, 9)
-    assert shapes["reset_body_mass"] == (4, 2)
-    assert shapes["reset_kp"] == shapes["reset_kd"] == (4, 3)
     assert protocol.slot_dtype("reset_env_ids") == np.dtype(np.int32)
     assert protocol.slot_nbytes("ctrl", shapes["ctrl"]) == 4 * 3 * 4
     with pytest.raises(ValueError, match="unknown shm slot"):
@@ -571,7 +569,7 @@ def test_set_state_roundtrip_and_cache_refresh(backend: IsaacGymBackend) -> None
 
     with pytest.raises(ValueError, match="qpos must have shape"):
         backend.set_state(rows, np.zeros((1, nq + 1), dtype=np.float32), qvel)
-    with pytest.raises(ValueError, match="unique"):
+    with pytest.raises(ValueError, match="duplicate rows"):
         backend.set_state(np.array([0, 0], dtype=np.int32), np.zeros((2, nq)), np.zeros((2, nv)))
 
 
@@ -673,7 +671,7 @@ def test_body_state_views(backend: IsaacGymBackend) -> None:
 
 def test_dr_and_pre_step_control_fail_closed(backend: IsaacGymBackend) -> None:
     capabilities = backend.get_dr_capabilities()
-    assert capabilities.supported_reset_terms == frozenset({"body_mass", "kp", "kd"})
+    assert not capabilities.supported_reset_terms
     assert not capabilities.supports_interval_push
     assert not capabilities.supports_interval_body_force
 

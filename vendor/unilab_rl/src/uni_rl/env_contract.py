@@ -102,21 +102,6 @@ class SupportsAlgoCapabilitiesProtocol(Protocol):
 
 
 @runtime_checkable
-class SupportsEpisodeLengthBufferProtocol(Protocol):
-    """Optional public setter for per-environment timeout counters."""
-
-    def set_episode_length_buf(self, values: np.ndarray) -> None: ...
-
-
-@runtime_checkable
-class SupportsSourceStatisticsProtocol(Protocol):
-    """Optional immutable snapshots of source-local counters and resources."""
-
-    @property
-    def source_statistics(self) -> Mapping[str, Mapping[str, int | float]]: ...
-
-
-@runtime_checkable
 class EnvProtocol(Protocol):
     """Vectorized numpy env consumed by uni_rl runners and collectors."""
 
@@ -191,7 +176,5 @@ __all__ = [
     "EnvProtocol",
     "EnvStateProtocol",
     "SupportsAlgoCapabilitiesProtocol",
-    "SupportsEpisodeLengthBufferProtocol",
-    "SupportsSourceStatisticsProtocol",
     "get_algo_capabilities",
 ]

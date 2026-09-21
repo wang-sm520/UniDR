@@ -6,7 +6,9 @@ from typing import Any
 
 import pytest
 import torch
+from examples.unidr_fake import FakeSource, make_ppo
 from omegaconf import OmegaConf
+from rsl_rl.storage import RolloutStorage
 from tensordict import TensorDict
 
 from uni_rl.algos.rsl_rl import (
@@ -19,6 +21,7 @@ from uni_rl.algos.rsl_rl import (
     rsl_rl_single_process_topology,
 )
 from uni_rl.algos.rsl_rl_ppo import FinalObservationAwarePPO
+from uni_rl.algos.synchronous_ppo import CentralVecEnv
 
 
 def test_rsl_rl_rank_seed_uses_base_seed_plus_global_rank() -> None:
@@ -275,3 +278,54 @@ def test_rsl_rl_adapter_outputs_combined_dones_and_time_outs_alias():
 
     assert torch.equal(dones, torch.tensor([True, True, False]))
     assert torch.equal(infos["time_outs"], torch.tensor([False, True, False]))
+
+
+@pytest.mark.parametrize("wrapper_cls", [RslRlVecEnvWrapper, CentralVecEnv])
+@pytest.mark.parametrize(
+    "pure_timeout,include_final", [(False, False), (False, True), (True, True)]
+)
+def test_ppo_termination_precedence_and_final_value_bootstrap(
+    wrapper_cls, pure_timeout, include_final
+):
+    class BoundaryEnv(FakeSource):
+        def step(self, actions):
+            state = super().step(actions)
+            # Rows are true termination, optional pure timeout, both flags, ongoing.
+            state.terminated[:] = [True, not pure_timeout, True, False]
+            state.truncated[:] = [False, pure_timeout, True, False]
+            state.reward[:] = [1, 2, 3, 4]
+            state.obs = {key: value * 0 + 7 for key, value in state.obs.items()}
+            state.final_observation = (
+                {key: value * 0 + 3 for key, value in state.obs.items()} if include_final else None
+            )
+            return state
+
+    env = wrapper_cls(BoundaryEnv(0, 4), policy_obs_mode="actor")
+    ppo = make_ppo()
+    # The fixture actor consumes the original "obs" key retained by central envs.
+    ppo.actor.obs_groups = ["actor"]
+    ppo.storage = RolloutStorage("rl", 4, 1, env.get_observations(), [2])
+    try:
+        with torch.no_grad():
+            actions = ppo.act(env.get_observations())
+            obs, rewards, dones, extras = env.step(actions)
+            expected_timeouts = torch.tensor([False, pure_timeout, False, False])
+            assert torch.equal(extras["time_outs"], expected_timeouts)
+            assert torch.equal(dones, torch.tensor([True, True, True, False]))
+            assert env.env.state.terminated[2] and env.env.state.truncated[2]
+            expected = rewards.clone()
+            tail_values = ppo.critic(obs).squeeze(-1)
+            if pure_timeout:
+                final_values = ppo.critic(extras["time_out_bootstrap_obs"]).squeeze(-1)
+                assert not torch.isclose(final_values[1], tail_values[1])
+                expected[1] += ppo.gamma * final_values[1]
+            else:
+                assert "time_out_bootstrap_obs" not in extras
+            ppo.process_env_step(obs, rewards, dones, extras)
+            torch.testing.assert_close(ppo.storage.rewards[0, :, 0], expected)
+            ppo.compute_returns(obs)
+            expected[3] += ppo.gamma * tail_values[3]
+            torch.testing.assert_close(ppo.storage.returns[0, :, 0], expected)
+    finally:
+        env.close()
+    assert env.env.closed

@@ -92,16 +92,6 @@ contract, and the *new algorithm recipe* section in
 [`AGENTS.md`](AGENTS.md) for how to plug in a custom algorithm via
 `runtime_resolver` without forking.
 
-### Synchronous multi-source environments
-
-`uni_rl.ipc.multi_source_env.make_multi_source_env` combines named, injected
-`EnvSourceSpec` factories into a single `EnvProtocol`, with fixed source slices,
-spawn workers, double-buffered shared-memory transport, fail-fast sequence
-barriers, source-local logs, and read-only source counters/timings/PID/RSS.
-Backend selection, tasks, counts and device binding remain caller-owned. See
-[the public interface and supported schemas](docs/multi_source_env.md) for
-startup, reset, NaN-guard, timeout and Linux process-group cleanup semantics.
-
 ### PPO curriculum checkpoint state
 
 An optional `RslRlPPORuntime.runner_cls` lets an entrypoint select a custom

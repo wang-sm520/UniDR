@@ -7,38 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `uni_rl.algos.rsl_rl_validation.run_bounded_ppo` runs the unchanged stock
-  learning loop to an update or post-warmup wall-clock budget, checks finite
-  updates and source sample counts, and saves a final checkpoint plus JSONL
-  evidence at a complete-update boundary. Numeric environment substep timings
-  are accumulated per source, including autoresets inside `step`.
-- Generic synchronous multi-source environments through
-  `uni_rl.ipc.multi_source_env`: `EnvSourceSpec`, `MultiSourceOptions`,
-  `make_multi_source_env`, and source-attributed `MultiSourceEnvError`.
-  Non-daemon spawn workers use fixed source slices, preallocated double-buffered
-  shared memory, strict descriptor/data validation and sequence barriers, with
-  all-source failure poisoning and Linux nested process-group cleanup. Isolated
-  per-source CPython resource trackers also reclaim source/child Python-tracked
-  SHM after native crashes, without scanning or unlinking unrelated learner SHM.
-- Source-namespaced logs, immutable source counter/timing/PID/RSS statistics,
-  global-ID reset scattering, and per-source episode-length/NaN-guard forwarding.
-  Optional `SupportsEpisodeLengthBufferProtocol` and
-  `SupportsSourceStatisticsProtocol` describe these additive capabilities;
-  `NanGuard.cfg` exposes a copy for process-local guard reconstruction.
-- Real-spawn CPU fault/cleanup tests and stock PPO 24-step update/checkpoint
-  integration with full-epoch source-label coverage. Small correctness fixtures
-  do not establish simulator-scale or GPU acceptance.
-
-### Changed
-
-- Accept infinite bounds for unbounded action spaces in multi-source startup
-  descriptors, while retaining NaN/order checks and finite transition data.
-- Existing `uni_rl.ipc` and `uni_rl.utils` exports load lazily so numpy-only
-  multi-source transport does not import torch-based training primitives or
-  device helpers at module import time.
-
 ## [1.2.0] - 2026-09-10
 
 ### Changed

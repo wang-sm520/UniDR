@@ -95,6 +95,14 @@ def _as_column_index(ids: np.ndarray) -> slice | np.ndarray:
     return index
 
 
+def _readonly_array(values: np.ndarray) -> np.ndarray:
+    result = np.asarray(values)
+    if result.flags.writeable:
+        result = result.copy()
+    result.setflags(write=False)
+    return result
+
+
 # Matching semantics derived from mujocolab/mjlab v1.6.0 (0fb8a681),
 # src/mjlab/utils/lab_api/string.py. Copyright 2025, The mjlab Developers;
 # adapted for the UniLab NumPy facade under Apache-2.0.
@@ -1803,16 +1811,12 @@ class Entity:
         self,
         body_ids: np.ndarray | Sequence[int] | slice | None = None,
         *,
-        default: np.ndarray,
-        default_mass: np.ndarray,
         term_name: str,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Bind entity-local body columns and caller-compiled default inertias.
+        """Bind entity-local body columns and authoritative default inertias.
 
-        ``default`` / ``default_mass`` are the full backend-width inertial
-        tables compiled from the scene model on the cold path; the transaction
-        cross-validates ``default_mass`` against the backend's authoritative
-        body-mass table before trusting the inertia rows.
+        The backend returns either canonical or per-environment default rows;
+        entity-local columns are selected without compiling a model in UniLab.
         """
         reset_state, local_ids, backend_ids = self._bind_body_randomization(
             body_ids,
@@ -1820,8 +1824,6 @@ class Entity:
         )
         _, defaults = reset_state.bind_body_inertia_write(
             backend_ids,
-            default=default,
-            default_mass=default_mass,
             term_name=f"{term_name}:{self.name}",
         )
         return self._readonly_local_binding(local_ids, defaults)
@@ -2223,11 +2225,7 @@ class Entity:
         local_ids: np.ndarray,
         defaults: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        bound_ids = np.array(local_ids, copy=True)
-        bound_ids.setflags(write=False)
-        bound_defaults = np.array(defaults, copy=True)
-        bound_defaults.setflags(write=False)
-        return bound_ids, bound_defaults
+        return _readonly_array(local_ids), _readonly_array(defaults)
 
     def _materialize_joint_model_dof_ids(self) -> np.ndarray:
         """Resolve full model DOF addresses once for reset-time model fields."""

@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - /task/g1_flip_tracking/unidr
+  - _self_
+
+training:
+  sim_backend: genesis
+
+env:
+  genesis_device_id: 0
+  genesis_integrator: implicitfast
+  scene:
+    entities:
+      robot:
+        # Genesis tracks the same bodies without MuJoCo geometry identifiers.
+        geom_names: null

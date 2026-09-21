@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, ClassVar
 
 import numpy as np
@@ -33,18 +34,127 @@ RESET_TERM_KP = "kp"
 RESET_TERM_KD = "kd"
 
 
-@dataclass(frozen=True)
-class GeomSizeOverride:
-    geom_name: str
-    size: tuple[float, ...]
+_RESET_TERM_NAMES = frozenset(
+    (
+        RESET_TERM_BASE_COM,
+        RESET_TERM_BASE_MASS,
+        RESET_TERM_GRAVITY,
+        RESET_TERM_BODY_IQUAT,
+        RESET_TERM_BODY_INERTIA,
+        RESET_TERM_BODY_IPOS,
+        RESET_TERM_BODY_MASS,
+        RESET_TERM_DOF_ARMATURE,
+        RESET_TERM_DOF_DAMPING,
+        RESET_TERM_DOF_FRICTIONLOSS,
+        RESET_TERM_GEOM_FRICTION,
+        RESET_TERM_GEOM_SIZE,
+        RESET_TERM_GEOM_SOLREF,
+        RESET_TERM_GEOM_SOLIMP,
+        RESET_TERM_KP,
+        RESET_TERM_KD,
+    )
+)
+
+
+def _validate_reset_term(term: str) -> None:
+    if term not in _RESET_TERM_NAMES:
+        raise ValueError(f"unknown reset term {term!r}")
 
 
 @dataclass(frozen=True)
-class ModelVariantSpec:
-    geom_size_overrides: tuple[GeomSizeOverride, ...] = field(default_factory=tuple)
+class ModelSourceDescriptor:
+    """A materialized, engine-loadable model source.
 
-    def is_empty(self) -> bool:
-        return not self.geom_size_overrides
+    ``model_file`` is deliberately a string path. UniLab materializes assets and
+    relative mesh references before constructing this descriptor; adapters own
+    cold-path loading. Live engine specs, executor handles, and device arrays
+    are not valid source descriptors.
+    """
+
+    model_file: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.model_file, str) or not self.model_file:
+            raise TypeError("ModelSourceDescriptor.model_file must be a non-empty string")
+
+
+class FixedVariantLayout(str, Enum):
+    """Public layout guarantee required by a fixed variant plan."""
+
+    SAME_LAYOUT = "same_layout"
+    UNIFORM_PUBLIC_LAYOUT = "uniform_public_layout"
+
+
+@dataclass(frozen=True)
+class FixedVariantPlan:
+    """Immutable per-environment model identity selected before materialization.
+
+    ``assignment`` contains final variant indices and is normalized to a
+    read-only integer NumPy array. The plan is intentionally a catalog of
+    complete model sources: slot merging, mesh/material pooling, per-world
+    arrays, playback representation, and derived-field recomputation belong to
+    backend adapters and their executors.
+    """
+
+    assignment: np.ndarray
+    variants: tuple[ModelSourceDescriptor, ...]
+    layout: FixedVariantLayout = FixedVariantLayout.SAME_LAYOUT
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.variants, tuple):
+            raise TypeError("FixedVariantPlan.variants must be a tuple")
+        if not self.variants:
+            raise ValueError("FixedVariantPlan.variants cannot be empty")
+        if not all(isinstance(variant, ModelSourceDescriptor) for variant in self.variants):
+            raise TypeError("FixedVariantPlan.variants must contain ModelSourceDescriptor values")
+        if not isinstance(self.layout, FixedVariantLayout):
+            raise TypeError("FixedVariantPlan.layout must be a FixedVariantLayout")
+
+        assignment = np.asarray(self.assignment)
+        if assignment.ndim != 1 or assignment.size == 0:
+            raise ValueError("FixedVariantPlan.assignment must be a non-empty (num_envs,) array")
+        if assignment.dtype.kind not in "iu":
+            raise TypeError("FixedVariantPlan.assignment must contain integers")
+        if np.any(assignment < 0) or np.any(assignment >= len(self.variants)):
+            raise ValueError(
+                f"FixedVariantPlan.assignment values must be in [0, {len(self.variants)})"
+            )
+        if not assignment.flags.writeable:
+            assignment = assignment.copy()
+        assignment.setflags(write=False)
+        object.__setattr__(self, "assignment", assignment)
+
+    def validate(self, num_envs: int | None = None) -> None:
+        """Validate the plan, optionally against a backend batch size."""
+        if num_envs is not None:
+            if isinstance(num_envs, bool) or not isinstance(num_envs, int) or num_envs <= 0:
+                raise ValueError("num_envs must be a positive integer")
+            if self.assignment.shape != (num_envs,):
+                raise ValueError(
+                    f"FixedVariantPlan.assignment must have shape ({num_envs},), "
+                    f"got {self.assignment.shape}"
+                )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FixedVariantPlan):
+            return False
+        return (
+            self.layout is other.layout
+            and self.variants == other.variants
+            and np.array_equal(self.assignment, other.assignment)
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.layout, self.variants, self.assignment.tobytes()))
+
+    def __setstate__(self, state: Mapping[str, Any]) -> None:
+        """Restore the assignment as read-only across process boundaries."""
+        restored = dict(state)
+        assignment = np.array(restored["assignment"], copy=True)
+        assignment.setflags(write=False)
+        restored["assignment"] = assignment
+        for name, value in restored.items():
+            object.__setattr__(self, name, value)
 
 
 @dataclass(frozen=True)
@@ -66,6 +176,11 @@ class DomainRandomizationCapabilities:
     supports_interval_body_force: bool = False
     supports_interval_body_torque: bool = False
     supported_interval_terms: frozenset[str] = field(default_factory=frozenset)
+    supports_fixed_variants: bool = False
+    supported_fixed_variant_layouts: frozenset[FixedVariantLayout] = field(
+        default_factory=frozenset
+    )
+    supports_per_env_playback: bool = False
 
     _LEGACY_INTERVAL_TERM_FLAGS: ClassVar[dict[str, str]] = {
         INTERVAL_TERM_PUSH: "supports_interval_push",
@@ -96,6 +211,17 @@ class DomainRandomizationCapabilities:
 
     def get_unsupported_reset_terms(self, requested_terms: frozenset[str]) -> frozenset[str]:
         return frozenset(term for term in requested_terms if not self.supports_reset_term(term))
+
+    def fixed_variant_rejections(self, plan: FixedVariantPlan) -> tuple[str, ...]:
+        """Return human-readable reasons why ``plan`` cannot be realized."""
+        if not isinstance(plan, FixedVariantPlan):
+            raise TypeError("plan must be a FixedVariantPlan")
+        reasons: list[str] = []
+        if not self.supports_fixed_variants:
+            reasons.append("fixed variants are unsupported")
+        if plan.layout not in self.supported_fixed_variant_layouts:
+            reasons.append(f"fixed variant layout '{plan.layout.value}' is unsupported")
+        return tuple(reasons)
 
     def filter_reset_payload(
         self, payload: ResetRandomizationPayload
@@ -268,15 +394,6 @@ class IntervalRandomizationPlan:
             and self.body_force is None
             and self.body_torque is None
         )
-
-
-@dataclass
-class InitRandomizationPlan:
-    model_assignments: np.ndarray
-    model_variants: tuple[ModelVariantSpec, ...]
-
-    def is_empty(self) -> bool:
-        return len(self.model_variants) == 0
 
 
 @dataclass

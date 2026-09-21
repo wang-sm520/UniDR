@@ -32,9 +32,13 @@ def create_backend(
         raise BackendError(f"backend '{backend_type}' is not currently available")
     if scene is None and backend_type not in {"isaacgym", "isaacsim"}:
         raise ValueError(f"backend '{backend_type}' requires a SceneCfg")
+    fixed_variant_plan = getattr(scene, "fixed_variant_plan", None)
+    if fixed_variant_plan is not None:
+        fixed_variant_plan.validate(num_envs)
 
     position_actuator_gains = kwargs.pop("position_actuator_gains", None)
     motrix_max_iterations = kwargs.pop("motrix_max_iterations", None)
+    motrix_disable_self_collision = kwargs.pop("motrix_disable_self_collision", None)
     post_step_forward_sensor = kwargs.pop("post_step_forward_sensor", None)
     iterations = kwargs.pop("iterations", None)
     chunk_size = kwargs.pop("chunk_size", None)
@@ -60,6 +64,13 @@ def create_backend(
     genesis_friction_cone = kwargs.pop("genesis_friction_cone", None)
     genesis_solver_iterations = kwargs.pop("genesis_solver_iterations", None)
     genesis_device_id = kwargs.pop("genesis_device_id", None)
+    genesis_enable_self_collision = kwargs.pop("genesis_enable_self_collision", None)
+    for name, value in (
+        ("motrix_disable_self_collision", motrix_disable_self_collision),
+        ("genesis_enable_self_collision", genesis_enable_self_collision),
+    ):
+        if value is not None and not isinstance(value, bool):
+            raise TypeError(f"{name} must be bool or None")
     isaacsim_device_id = kwargs.pop("isaacsim_device_id", None)
     isaacsim_worker_timeout_s = kwargs.pop("isaacsim_worker_timeout_s", None)
     isaacsim_render_mode = kwargs.pop("isaacsim_render_mode", None)
@@ -73,13 +84,27 @@ def create_backend(
             kwargs["add_body_sensors"] = True
         if position_actuator_gains is not None:
             kwargs["position_actuator_gains"] = position_actuator_gains
+        ignored = {}
         if post_step_forward_sensor is not None:
-            kwargs["post_step_forward_sensor"] = post_step_forward_sensor
+            ignored["post_step_forward_sensor"] = post_step_forward_sensor
+        if chunk_size is not None:
+            ignored["chunk_size"] = chunk_size
+        if adaptive_chunk_size:
+            ignored["adaptive_chunk_size"] = adaptive_chunk_size
+        if bench_nsteps != 1:
+            ignored["bench_nsteps"] = bench_nsteps
+        if ignored:
+            warnings.warn(
+                "mujoco ignores removed executor options: "
+                + ", ".join(f"{key}={value!r}" for key, value in ignored.items())
+                + " (post_step_forward_sensor was removed: the mjbatch executor serves "
+                "final-substep sensordata semantics; chunk_size/adaptive_chunk_size/"
+                "bench_nsteps belonged to the removed chunk tuner)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         kwargs["iterations"] = iterations
-        kwargs["chunk_size"] = chunk_size
-        kwargs["adaptive_chunk_size"] = adaptive_chunk_size
         kwargs["cpu_ids"] = cpu_ids
-        kwargs["bench_nsteps"] = bench_nsteps
         return MuJoCoBackend(scene, num_envs, sim_dt, **kwargs)
     if backend_type == "motrix":
         from .backend.motrix.backend import MOTRIX_AVAILABLE, MotrixBackend
@@ -90,6 +115,8 @@ def create_backend(
             kwargs["add_body_sensors"] = True
         if motrix_max_iterations is not None:
             kwargs["max_iterations"] = motrix_max_iterations
+        if motrix_disable_self_collision is not None:
+            kwargs["disable_self_collision"] = motrix_disable_self_collision
         return MotrixBackend(scene, num_envs, sim_dt, **kwargs)
     if backend_type == "drake":
         from .backend.drake.backend import DrakeBackend
@@ -184,6 +211,7 @@ def create_backend(
         kwargs["friction_cone"] = genesis_friction_cone
         kwargs["solver_iterations"] = genesis_solver_iterations
         kwargs["device_id"] = genesis_device_id
+        kwargs["enable_self_collision"] = genesis_enable_self_collision
         return GenesisBackend(scene, num_envs, sim_dt, **kwargs)
     if backend_type == "isaacgym":
         if scene is None and "runtime" not in kwargs and "worker_command" not in kwargs:

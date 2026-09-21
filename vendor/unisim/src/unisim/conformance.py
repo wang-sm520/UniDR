@@ -23,7 +23,6 @@ def assert_backend_conformance(backend: SimBackend) -> None:
     assert backend.num_actuators > 0
     assert BackendCapability.RESET in backend.capabilities
     assert BackendCapability.STATE_READ in backend.capabilities
-
     ctrl = np.zeros((backend.num_envs, backend.num_actuators), dtype=np.float64)
     backend.step(ctrl)
     state = backend.get_state()

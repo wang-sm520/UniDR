@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from unisim.backend.subprocess_ipc import protocol
 from unisim.backend.subprocess_ipc.backend import (
     MjcfSubprocessBackend,
     SubprocessModelInfo,
@@ -41,7 +40,6 @@ class IsaacGymBackend(MjcfSubprocessBackend):
     _BACKEND_LABEL = "isaacgym"
     _WORKER_ERROR_CLS = IsaacGymWorkerError
     _MODEL_INFO_CLS = IsaacGymModelInfo
-    _CONTACT_REPORTER = protocol.CONTACT_REPORTER_ISAACGYM
 
     def _worker_entrypoint(self) -> Path:
         return _WORKER_PATH

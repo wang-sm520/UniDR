@@ -25,10 +25,13 @@ from unisim.backend.base import (
     normalize_play_render_mode,
 )
 from unisim.backend.isaacgym.backend import IsaacGymWorkerError
-from unisim.backend.subprocess_ipc import protocol
 from unisim.backend.subprocess_ipc.backend import (
     MjcfSubprocessBackend,
     SubprocessModelInfo,
+)
+from unisim.backend.subprocess_ipc.sensors import (
+    KIND_CONTACT_FOUND,
+    UnsupportedSensorSpec,
 )
 
 from .dependencies import build_worker_env, resolve_isaacsim_runtime
@@ -79,7 +82,6 @@ class IsaacSimBackend(MjcfSubprocessBackend):
     _BACKEND_LABEL = "isaacsim"
     _WORKER_ERROR_CLS = IsaacSimWorkerError
     _MODEL_INFO_CLS = IsaacSimModelInfo
-    _CONTACT_REPORTER = protocol.CONTACT_REPORTER_ISAACSIM
 
     def __init__(
         self,
@@ -144,6 +146,29 @@ class IsaacSimBackend(MjcfSubprocessBackend):
                 "" if runtime.isaaclab_source is None else str(runtime.isaaclab_source)
             ),
         }
+
+    def _resolve_sensor_map(self) -> dict[str, tuple[Any, int]]:
+        """Resolve only sensors backed by a real IsaacSim state quantity.
+
+        The current worker reserves a contact-force slot for protocol
+        compatibility but does not populate it from a PhysX contact reporter.
+        Contact declarations must therefore remain unsupported rather than
+        appearing to work while always returning zero.
+        """
+        resolved = super()._resolve_sensor_map()
+        metadata = self._get_scene_metadata()
+        for name, (spec, _body_id) in tuple(resolved.items()):
+            if spec.kind != KIND_CONTACT_FOUND:
+                continue
+            metadata.unsupported_sensors[name] = UnsupportedSensorSpec(
+                name=name,
+                reason=(
+                    "IsaacSim contact-force reporting is not implemented in the headless "
+                    "worker; a reserved shared-memory slot is not a contact sensor"
+                ),
+            )
+            del resolved[name]
+        return resolved
 
     def _bind_model_metadata(self, meta: dict[str, Any]) -> None:
         """Validate the worker's private clone, collision, and render contract."""

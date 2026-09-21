@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import shutil
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -35,11 +35,6 @@ class NanGuard:
         self._buffer_idx: int = 0
         self._buffer_full: bool = False
         self._dumped: bool = False
-
-    @property
-    def cfg(self) -> NanGuardCfg:
-        """Return a configuration copy for reconstructing process-local guards."""
-        return replace(self._cfg)
 
     def capture(self, physics_state: np.ndarray | None) -> None:
         if physics_state is None:

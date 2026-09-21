@@ -1,7 +1,7 @@
 <h1 align="center"> UniDR </h1>
 
 <h3 align="center">
-基于 UniLab 的多仿真器统一采样与共享 PPO
+G1 flip tracking：四仿真器统一采样与唯一共享 PPO
 </h3>
 
 <p align="center">语言：简体中文 | <a href="README.md">English</a></p>
@@ -9,26 +9,57 @@
 ## 当前版本与研究范围
 
 UniDR 研究把**仿真器动力学差异作为域随机化来源**，比较单仿真器与多仿真器
-共同训练对 sim2sim / sim2real 的影响。当前开发任务是 **G1FlipTracking**：
+共同训练对 sim2sim / sim2real 的影响。任务为 **G1FlipTracking**：
 Isaac Sim、Isaac Gym、Genesis、Motrix 采集，唯一共享 PPO learner 更新。
 MuJoCo 仅用于固定模型留出测试，不进入训练、在线评分、调参或 checkpoint 选择。
+后续开发与实验以 flip tracking 为中心。
 
-**版本边界（2026-09-21）：本次更新发布文档。** 本仓当前 `src/` 与 `vendor/`
-仍是 9 月 13 日的 **G1WalkFlat** 快照；下述 G1 flip、自适应配比和 Isaac Sim
-修复位于本地开发分支，尚未同步到这个 GitHub 源码快照。不能仅克隆本仓就执行
-这些新命令，也不能用上游同版本号的 PyPI 包替代修改后的 runtime。
+本仓已包含 flip 任务配置、中央 rollout、共享 PPO、自适应比例接口和最近的
+Isaac Sim 地面克隆修复。修改后的两个依赖随仓提供，仍保留独立 Python 包边界：
 
-| 内容 | 位置及状态 |
-| --- | --- |
-| 本仓已包含的旧实验 | [G1WalkFlat 10,000 轮 checkpoint](checkpoints/g1_walk_flat_multisim_10000/README.md)、[单仓依赖](vendor/README.md) |
-| 当前 flip 环境与配置 | 本地 `UniLab-unidr-backends`；基线 `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` 加本地修改 |
-| 当前 RL runtime | 本地 `unilab_rl`，导入名 `uni_rl`；基线 `79418e0cbff7b95fe6e49709b194454701ba20fa` 加本地修改 |
-| 当前物理后端 | 本地 `unisim-unidr-backends`；基线 `4270aa81d868744980db90dac6dd959d3f542f50` 加本地修改 |
+| Owner | 仓内位置 | 本地修改之前的上游基线 |
+| --- | --- | --- |
+| UniLab：任务、配置、环境工厂、sim2sim | [src/unilab](src/unilab) | `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` |
+| uni_rl：采集、learner、IPC、调度、日志 | [vendor/unilab_rl](vendor/unilab_rl) | `79418e0cbff7b95fe6e49709b194454701ba20fa` |
+| UniSim：物理适配与 vendor worker | [vendor/unisim](vendor/unisim) | `4270aa81d868744980db90dac6dd959d3f542f50` |
 
-基线 SHA 不能单独复现未提交修改。当前开发环境实际使用 RSL-RL **5.0.1**；
-runtime 自身锁文件的 5.5.0 是另一个已测试环境。以下命令均针对**已配置好的
-本地开发三仓**，从 `UniLab-unidr-backends` 根目录执行；SDK 和机器人/动作资产
-必须已准备好，不会随 README 自动安装。`uv run --no-sync` 保留本地 editable 依赖。
+基线 SHA 不能单独标识修改后的实现。逐文件哈希、打包改动和检查结果见
+[源码清单](vendor/manifest.json)及
+[本次发布验证](docs/validation/unidr-flip-publication-2026-09-21.md)。
+根目录锁文件使用 RSL-RL **5.0.1**；runtime 独立锁文件使用 5.5.0。
+下面的工作流统一使用根目录环境。
+
+## 安装、SDK 与资产
+
+当前实验环境为 Linux、RTX 3090、Python 3.10、PyTorch 2.8.0+cu128。
+安装 [uv](https://docs.astral.sh/uv/) 后，从本仓同时安装三个 editable 包：
+
+```bash
+git clone https://github.com/wang-sm520/UniDR.git
+cd UniDR
+uv sync --python 3.10 --locked --extra mujoco --extra motrix --extra genesis
+uv run --no-sync python -c 'import unilab, uni_rl, unisim; print(unilab.__file__); print(uni_rl.__file__); print(unisim.__file__)'
+uv run --no-sync unilab-pull-assets --robot g1
+uv run --no-sync python -c 'from unilab.assets.hub import resolve_motion_files; resolve_motion_files("motions/g1/flip_360_001__A304.npz")'
+export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2
+```
+
+`unilab` 应来自本仓 `src/`，`uni_rl` / `unisim` 应来自本仓 `vendor/`。
+上游同版本号 wheel 不包含这些实验修改。mesh、贴图和动作通过注册的
+Hugging Face 资产 hub 下载，不提交到 git；训练检查固定动作与 G1 XML 哈希。
+
+Isaac Gym Preview 4 使用独立 Python 3.8 环境；Isaac Sim 5.1 / IsaacLab 使用独立
+Python 3.11 环境。它们不由根目录 `uv sync` 安装，也不随仓分发。
+已有安装默认位于 `~/.cache/unisim/isaacgym` 与 `~/.cache/unisim/isaacsim`；
+自定义位置可设置 `UNISIM_ISAACGYM_HOME`、`UNISIM_ISAACSIM_HOME`，解释器可设置
+`UNISIM_ISAACGYM_PYTHON`、`UNISIM_ISAACSIM_PYTHON`。
+新机器安装前阅读
+[Isaac Gym 脚本](scripts/tools/setup_isaacgym_env.sh)和
+[Isaac Sim 脚本](scripts/tools/setup_isaacsim_env.sh)。
+worker 源码从当前导入的 vendor UniSim 路径加载。
+
+以下命令均从 UniDR 根目录执行；`/absolute/...` 是需要替换的路径占位符。
+新输出目录不得混用已有实验。
 
 ## 四后端如何联合
 
@@ -79,17 +110,9 @@ post-step observation，包含 autoreset observation，final observation 不重�
 
 ## 固定比例训练
 
-先确认三个模块解析到当前开发 checkout，而不是本仓旧 `vendor/` 或 PyPI 包：
-
 ```bash
-export UNIDR_DEV=/absolute/path/to/UniLab-unidr-backends
-cd "$UNIDR_DEV"
-export UNILAB_LOCAL_UNISIM=/absolute/path/to/unisim-unidr-backends
-export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2
-uv run --no-sync python -c 'import unilab, uni_rl, unisim; print(unilab.__file__); print(uni_rl.__file__); print(unisim.__file__)'
-
 # 单卡：4 × 1024 环境，固定各 25%，从头训练 5000 轮。
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_single_gpu \
   algo.num_envs=1024 algo.max_iterations=5000 \
   training.log_dir=/absolute/new/fixed-single-gpu
@@ -122,11 +145,11 @@ optimizer steps**；联合每源仅贡献总样本的 25%。不要和旧的单�
 
 ```bash
 # 只解析配置，不构建环境。
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_adaptive --cfg job --resolve
 
 # 可执行入口；当前尚未完成真实自适应 PPO 训练/1024容量验证。
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_adaptive \
   algo.num_envs=1024 algo.max_iterations=5000 \
   training.log_dir=/absolute/new/adaptive-single-gpu
@@ -181,7 +204,7 @@ E/S/R 全部连续三次达标后，可逐次把 0.01 失败率权重转给 E，
 保存模型、optimizer、normalizer、RNG、版本、预算和调度状态。
 
 ```bash
-uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
+uv run --no-sync python scripts/train_unidr.py \
   task=g1_flip_tracking/unidr_single_gpu \
   algo.num_envs=1024 algo.max_iterations=5000 \
   algo.resume=true algo.resume_path=/absolute/parent/model_500.pt \
@@ -190,8 +213,53 @@ uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
 
 恢复后四源环境重新 reset、进入新 generation；不恢复真实仿真状态。
 自适应恢复必须使用原 owner 和相同调度契约，不能直接续接固定模式 checkpoint。
-当前固定模式报告器 `../unilab_rl/examples/report_synchronous.py` 和专用 holdout
+当前固定模式报告器 `vendor/unilab_rl/examples/report_synchronous.py` 和专用 holdout
 预算审计器尚不支持自适应 checkpoint，不能用固定配额假设强行审计。
+
+## MuJoCo 留出评测与播放
+
+checkpoint 和实验视频是生成物，不是仓内预训练模型。需提供预先固定的最终
+checkpoint，以及同一实验目录中的原始配置和 manifest。换机器时先准备上述
+G1 资产。入口在创建 MuJoCo 环境前检查模型维度、strict 任务契约、资产哈希和
+完整优化预算，不自动选择其他 checkpoint。
+
+```bash
+# 固定四源5000轮的最终模型。
+MUJOCO_GL=egl uv run --no-sync python scripts/play_unidr_holdout.py \
+  /absolute/completed/run/model_4999.pt \
+  --expected-iterations 5000 --output /absolute/new/joint-mujoco
+
+# 单源最终模型，叠加相位匹配的参考动作。
+MUJOCO_GL=egl uv run --no-sync python scripts/play_single_reference.py \
+  /absolute/completed/genesis/model_4999.pt \
+  --expected-iterations 5000 --num-envs 4096 \
+  --output /absolute/new/genesis-mujoco-reference
+
+# 十次不间断动作尝试：动作完成后继续观察5秒。
+MUJOCO_GL=egl uv run --no-sync python scripts/evaluate_flip_trials.py \
+  --single-run genesis /absolute/completed/genesis \
+  --expected-iterations 5000 --num-envs 4096 \
+  --output /absolute/new/genesis-ten-trials
+```
+
+前两个录像入口输出 20 秒、720p、50 FPS 视频及验证元数据；原生终止/参考循环
+播放不等于动作后连续 5 秒的成功率协议。十次统计入口保持参考末帧，策略与
+物理继续运行 250 个控制步；每次共 474 步，内部禁止 reset。
+seed 1–10 在没有附加 DR 的固定场景下重复，不能当作十种随机条件。
+不根据 MuJoCo 结果重新挑模型或调整训练参数。自适应 checkpoint 的专用留出
+预算审计尚未接通。
+
+单仿真器的原生播放使用普通 eval 入口，并显式指定模型；交互窗口需要显示环境：
+
+```bash
+uv run --no-sync eval --algo ppo --task g1_flip_tracking \
+  --sim genesis --profile comparison \
+  algo.load_run=/absolute/completed/genesis/model_4999.pt \
+  --render-mode interactive training.play_env_num=1
+```
+
+同时替换后端与其单源模型即可查看各自训练引擎中的策略。原生播放可能 reset
+或循环参考动作，不代替“动作后5秒不摔倒”的留出评测。
 
 ## 最近改动与进展
 
@@ -203,8 +271,8 @@ uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
   终止阈值。新增持久原生日志与明确物理错误拒绝。
 - 修复后单 Isaac Sim **4096×5000** 已完成并通过预算及完整退出日志审计。
   Genesis、Motrix、Isaac Gym 的单源 **4096×5000** 也已完成。
-- 修复版固定联合 **4×1024×5000** 正在运行；已保存的 3501 次更新审计通过，
-  对应 344,162,304 transitions、70,020 次优化。这是阶段快照，非最终完成声明。
+- 整理本次源码快照时，修复版固定联合 **4×1024×5000** 仍在训练。
+  最终训练预算与资源退出审计独立于源码发布，记录状态见带日期的发布验证报告。
 - 四卡仅完成映射测试。本轮 MuJoCo 固定场景各十次测试按“完整空翻且动作后
   5 秒不摔倒”均为 0/10；修复 Isaac Sim 能翻转落地，但后续失稳。确定性重复
   不是十种随机条件，不据此声称 sim2real 或随机鲁棒性结论。
@@ -214,148 +282,21 @@ uv run --no-sync python "$UNIDR_DEV/scripts/train_unidr.py" \
 成功和 sim2real 有效是不同验收项。当前目标是完成修复版固定训练，再按预先
 约定的协议比较；MuJoCo 结果不驱动在线配比或选择 checkpoint。
 
-## 上游 UniLab
+## 源码位置、验证与致谢
 
-以下保留 UniLab 的介绍、安装入口及引用信息。上游功能说明不代表本地 UniDR
-开发改动已经发布；旧 WalkFlat 实验安装仍见上面的 checkpoint 与 vendor 文档。
+任务配置位于
+[src/unilab/conf/ppo/task/g1_flip_tracking](src/unilab/conf/ppo/task/g1_flip_tracking)，
+中央 runner 位于
+[vendor/unilab_rl/src/uni_rl/algos/synchronous_runner.py](vendor/unilab_rl/src/uni_rl/algos/synchronous_runner.py)。
+[依赖说明](vendor/README.md)列出各 owner 的检查方式，
+[本次发布验证](docs/validation/unidr-flip-publication-2026-09-21.md)记录精确命令与结果。
+旧 WalkFlat 工作保留在 Git 历史中，不作为当前实验入口。
 
-<p align="center">
-  <a href="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml"><img src="https://github.com/unilabsim/UniLab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://unilabsim.github.io"><img src="https://img.shields.io/badge/project-page-brightgreen" alt="Project Page"></a>
-  <a href="https://arxiv.org/abs/2605.30313"><img src="https://img.shields.io/badge/paper-arXiv--2605.30313-red" alt="Paper"></a>
-  <a href="https://arxiv.org/abs/2605.30313"><img src="https://img.shields.io/badge/CoRL-2026-orange" alt="CoRL 2026"></a>
-  <a href="https://unilabsim.github.io/UniLab-doc/"><img src="https://img.shields.io/badge/docs-UniLab--doc-blue" alt="Documentation"></a>
-  <a href="https://pypi.org/project/unilab/"><img src="https://img.shields.io/pypi/v/unilab" alt="PyPI"></a>
-  <a href="https://github.com/unilabsim/UniLab/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 License"></a>
-</p>
-
-<h3 align="center">🎉 🎉 UniLab 已被 <b>CoRL 2026</b> 接收！ 🎉 🎉</h3>
-
-<p align="center">
-  <img src="docs/sphinx/source/_static/assets/teaser.jpg" alt="UniLab 预告图" width="95%">
-</p>
-
-<p align="center"><em>用同一套任务编排体验覆盖运动、操作与动作跟踪。</em></p>
-
-UniLab 是面向机器人强化学习的可配置基础设施。使用 Hydra 描述任务，
-通过 manager term 组装任务，选择物理后端，再用统一 CLI 完成训练与评估。
-同一套面向任务的 contract 可以把 CPU、GPU 和外部 worker 仿真连接到学习器运行时。
-
-同一套框架已提供 Windows、Apple Silicon macOS、Linux CUDA、AMD ROCm 和 Intel XPU 的文档
-路径。不同 backend/task 的成熟度按证据分级；请选择[支持矩阵](https://unilabsim.github.io/UniLab-doc/zh_CN/5-reference/5-support_matrix.html)
-中有测试证据的组合。
-
-可以先在[项目主页](https://unilabsim.github.io/#demos)观看策略运行，或阅读
-[为什么选择 UniLab？](https://unilabsim.github.io/UniLab-doc/zh_CN/why_unilab.html)，
-了解适用场景、证据和同类方案比较。
-
-## 亮点
-
-UniLab 的核心理念很简单：将任务语义定义为可复用的配置，然后独立更换仿真器、硬件或
-learner，而无需重写任务的 environment 生命周期。
-
-- **配置而非编码。** action、observation、reward、termination、event、command、
-  curriculum 和 metrics 都是 manager term，在 Hydra owner YAML 中组装。基于已有 term
-  的任务变体无需新写 environment class，很多时候完全不需要 Python 代码。
-- **更换后端而不更换工作流。** 已注册仿真器遵循公开的 `SimBackend` contract。
-  使用 `--sim` 选择后端；存在匹配 task owner 时，任务编排和训练/评估工作流保持一致，
-  后端差异仍然显式。
-- **让 solver 与 learner 的设备彼此独立。** CPU 并行、native 或 external-worker 仿真
-  不必先变成 CUDA-resident simulator，也可以向 accelerator learner 提供数据；learner
-  可以运行在 CUDA、ROCm、MPS 或 XPU 上。每个 backend/task 组合的证据等级请查看
-  [支持矩阵](https://unilabsim.github.io/UniLab-doc/zh_CN/5-reference/5-support_matrix.html)。
-- **加速 replay-based off-policy 训练。** FastSAC/FlashSAC 让仿真数据采集与 learner
-  update 重叠。论文在代表性配置上报告了 3–10 倍端到端收益；测量范围和限制见
-  [为什么选择 UniLab](https://unilabsim.github.io/UniLab-doc/zh_CN/why_unilab.html)。
-
-## 快速开始
-
-推荐使用 [`uv`](https://docs.astral.sh/uv/) 完成源码工作流。以下是运行策略 demo 的
-最短路径：
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone https://github.com/unilabsim/UniLab.git
-cd UniLab
-
-make setup
-# 首次运行会从 Hugging Face 下载 checkpoint 和 asset。
-uv run demo dance
-```
-
-Windows、macOS、CUDA、ROCm、XPU、可选后端和无头渲染的说明，请查看
-[安装指南](https://unilabsim.github.io/UniLab-doc/zh_CN/1-getting_started/2-installation.html)和
-[快速演示指南](https://unilabsim.github.io/UniLab-doc/zh_CN/1-getting_started/1-quick_demo.html)。
-
-## 训练与评估
-
-```bash
-# 使用 Motrix 训练并回放一个任务。
-uv run train --algo ppo --task go2_joystick_flat --sim motrix
-uv run eval --algo ppo --task go2_joystick_flat --sim motrix --load-run -1
-
-# 使用另一个已有配置的后端，保持同样的任务入口。
-uv run train --algo ppo --task go2_joystick_flat --sim mujoco
-
-# Replay-based off-policy 路径。
-uv run train --algo sac --task g1_walk_flat --sim mujoco
-```
-
-这些 flag 会让 algorithm、task 和 simulator 选择保持可见。续训、W&B、Hydra override、
-回放、后端安装和完整命令矩阵属于
-[训练指南](https://unilabsim.github.io/UniLab-doc/zh_CN/2-user_guide/1-training/0-index.html)、
-[后端指南](https://unilabsim.github.io/UniLab-doc/zh_CN/2-user_guide/3-backends/0-index.html)和
-[支持矩阵](https://unilabsim.github.io/UniLab-doc/zh_CN/5-reference/5-support_matrix.html)。
-
-## 生态
-
-UniLab 被设计为机器人专属仓库共享的任务与训练界面。下游仓库可以独立发布机器人
-recipe，同时消费同一套 task、backend 和 RL contract。目前的下游示例：
-
-- [MicroDuck RL](https://github.com/unilabsim/microduck_rl_unilab)
-- [EngineAI RL](https://github.com/unilabsim/engineai_rl_unilab)
-- [Wuji](https://github.com/unilabsim/wuji_unilab)
-- [Legged Manipulation](https://github.com/unilabsim/legged-manipulation_unilab)
-
-## 文档
-
-- [为什么选择 UniLab？](https://unilabsim.github.io/UniLab-doc/zh_CN/why_unilab.html)
-- [安装与第一次 demo](https://unilabsim.github.io/UniLab-doc/zh_CN/1-getting_started/0-index.html)
-- [训练与评估](https://unilabsim.github.io/UniLab-doc/zh_CN/2-user_guide/1-training/0-index.html)
-- [后端支持矩阵](https://unilabsim.github.io/UniLab-doc/zh_CN/5-reference/5-support_matrix.html)
-- [Sim-to-sim 部署](https://unilabsim.github.io/UniLab-doc/zh_CN/3-deployment/2-sim_to_sim/1-backend_swap.html)
-- [开发者指南](https://unilabsim.github.io/UniLab-doc/zh_CN/4-developer_guide/0-index.html)
-
-开发与贡献工作流请参阅[贡献指南](CONTRIBUTING.md)。
-
-## 社区
-
-<p align="center">
-  <img src="docs/sphinx/source/_static/assets/unilab-wechat-assistant.jpg" alt="UniLab 社区二维码" width="180">
-</p>
-
-<p align="center">添加 UniLab 小助手微信，加入社区。</p>
-
-## 引用
-
-```bibtex
-@article{jia2026unilab,
-  title         = {UniLab: A Heterogeneous Architecture for Robot RL Beyond GPU-Dominant Paradigms},
-  author        = {Jia, Yufei and Cao, Zhanxiang and Yu, Mingrui and Zhang, Heng and Chen, Shenyu and Jiang, Dixuan and Li, Meng and Li, Xiaofan and Liu, Yiyang and Wu, Junzhe and Li, Zheng and Fang, XiLin and Cui, Tingyu and Fu, Shengcheng and Li, Haoyang and Wang, Anqi and Wang, Zifan and Zhu, Dongjie and Cao, Chenyu and Huang, Zhenbiao and Zheng, Ziang and Lu, Jie and Ma, Xin and Wei, Zhengyang and Zhao, Xiang and Zhan, Tianyue and He, Ye and Chen, Yuxiang and Jiang, Yizhou and Li, Yue and Ge, Haizhou and Dong, Yuhang and Jia, Fan and Zhang, Ziheng and Zhang, Meng and Deng, Xiwa and Chen, Zhixing and Shao, Hanyang and Dong, Chenxin and Li, Yixuan and Chen, Yizhi and Chen, Bokui and Zhang, Kaifeng and Cui, Hanqing and Qin, Yusen and Huang, Ruqi and Han, Lei and Wang, Tiancai and Li, Xiang and Gao, Yue and Zhou, Guyue},
-  journal       = {arXiv preprint arXiv:2605.30313},
-  year          = {2026},
-  url           = {https://arxiv.org/abs/2605.30313}
-}
-```
-
-UniLab 以 [Apache License 2.0](LICENSE) 发布。独立的
-[UniSim](https://github.com/unilabsim/unisim) 与
-[UniLab RL](https://github.com/unilabsim/unilab_rl) 仓库包含各自的发布和引用信息。
-
-## 致谢
-
-如果没有 [Isaac Lab](https://github.com/isaac-sim/IsaacLab) 团队以及
-[mjlab](https://github.com/mujocolab/mjlab) 开发团队和贡献者的出色工作，UniLab 不会
-成为今天的样子。Isaac Lab 在 manager-based API 设计和抽象方面的工作，以及 mjlab
-清晰、轻量的参考实现，共同塑造了 UniLab 的 Hydra + NumPy 任务编排体验。衷心感谢两个
-社区分享他们的工作与想法。
+本项目基于 [UniLab](https://github.com/unilabsim/UniLab)、
+[UniLab RL](https://github.com/unilabsim/unilab_rl) 与
+[UniSim](https://github.com/unilabsim/unisim)，采样组织参考 PolySim。
+通用框架与后端说明见[上游文档](https://unilabsim.github.io/UniLab-doc/)，
+上游引用信息见 [UniLab 论文](https://arxiv.org/abs/2605.30313)。
+保留原 [Apache-2.0 许可](LICENSE)及
+[runtime](vendor/unilab_rl/LICENSE)、[物理层](vendor/unisim/LICENSE)各自许可。
+本仓是研究源码快照，不是上游新版本发布，也不意味着已证明 sim2real 收益。

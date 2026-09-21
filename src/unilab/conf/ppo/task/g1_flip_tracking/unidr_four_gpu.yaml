@@ -1,0 +1,29 @@
+# @package _global_
+defaults:
+  - /task/g1_flip_tracking/unidr
+  - _self_
+
+training:
+  device: ${unidr.learner_device}
+
+unidr:
+  learner_device: cuda:3
+  timeout_s: 180.0
+  startup_timeout_s: 600.0
+  sources:
+    - name: isaacsim
+      task: g1_flip_tracking/unidr_isaacsim
+      device: cuda:0
+      env_overrides: {isaacsim_device_id: 0}
+    - name: isaacgym
+      task: g1_flip_tracking/unidr_isaacgym
+      device: cuda:1
+      env_overrides: {isaacgym_device_id: 1}
+    - name: genesis
+      task: g1_flip_tracking/unidr_genesis
+      device: cuda:2
+      env_overrides: {genesis_device_id: 2}
+    - name: motrix
+      task: g1_flip_tracking/unidr_motrix
+      device: cpu
+      env_overrides: {}

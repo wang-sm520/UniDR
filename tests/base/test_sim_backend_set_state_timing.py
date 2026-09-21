@@ -31,6 +31,10 @@ from unilab.base.np_env import BACKEND_SET_STATE_DETAIL_TIMING_KEYS
 from unilab.base.scene import SceneCfg
 
 pytest.importorskip("mujoco", reason="mujoco not installed")
+pytest.importorskip(
+    "unisim.backend.mujoco.backend",
+    reason="unisim-core MuJoCo adapter (mjbatch build) not available",
+)
 
 
 NUM_ENVS = 2
@@ -95,7 +99,9 @@ def test_mujoco_set_state_returns_schema_conformant_timing() -> None:
     _assert_gap_bounded(timing)
     # MuJoCo-specific sub-keys must be populated on the mujoco path.
     assert timing["set_state_pool_reset_ms"] > 0.0
-    assert timing["set_state_state_scatter_ms"] > 0.0
+    # mjbatch executor: canonical state lives in the batch's bound views, so
+    # there is no host scatter — the key stays populated at 0.0 (#1554).
+    assert timing["set_state_state_scatter_ms"] == 0.0
     # Motrix-only sub-keys report 0.0 on the mujoco backend.
     assert timing["set_state_mask_ms"] == 0.0
     assert timing["set_state_data_slice_ms"] == 0.0

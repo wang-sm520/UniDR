@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /task/g1_flip_tracking/base
+  - _self_
+
+training:
+  sim_backend: isaacgym
+
+env:
+  isaacgym_device_id: 0

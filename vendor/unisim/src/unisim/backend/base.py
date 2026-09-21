@@ -9,10 +9,10 @@ import numpy as np
 
 from unisim.dr.types import (
     DomainRandomizationCapabilities,
-    InitRandomizationPlan,
     IntervalRandomizationPlan,
     IntervalTermOp,
     ResetRandomizationPayload,
+    _validate_reset_term,
 )
 
 PreStepControlFn = Callable[[Any, np.ndarray], np.ndarray]
@@ -21,9 +21,7 @@ SensorReadFn = Callable[[], np.ndarray]
 
 
 DebugPrimitiveKind = Literal["sphere", "box", "frame", "arrow", "ghost_geom", "text"]
-DEBUG_PRIMITIVE_KINDS = frozenset(
-    {"sphere", "box", "frame", "arrow", "ghost_geom", "text"}
-)
+DEBUG_PRIMITIVE_KINDS = frozenset({"sphere", "box", "frame", "arrow", "ghost_geom", "text"})
 DEFAULT_DEBUG_RGBA = (1.0, 0.2, 0.2, 0.5)
 
 # Expected ``size`` arity per primitive kind; ``ghost_geom`` also accepts an
@@ -74,9 +72,7 @@ class DebugPrimitive:
             if not math.isfinite(norm) or norm < 1e-6:
                 raise ValueError("DebugPrimitive quat must be a non-zero wxyz quaternion")
             if abs(norm - 1.0) > 1e-3:
-                raise ValueError(
-                    f"DebugPrimitive quat must be unit-length wxyz (norm {norm:.6f})"
-                )
+                raise ValueError(f"DebugPrimitive quat must be unit-length wxyz (norm {norm:.6f})")
             object.__setattr__(self, "quat", quat)
         size = _as_float_tuple(self.size, None, "DebugPrimitive size")
         if len(size) not in _DEBUG_PRIMITIVE_SIZE_ARITY[self.kind]:
@@ -136,8 +132,7 @@ def validate_debug_overlays(
         )
     if len(overlays) != num_envs:
         raise ValueError(
-            f"debug overlays must have one entry per env (len == {num_envs}); "
-            f"got {len(overlays)}"
+            f"debug overlays must have one entry per env (len == {num_envs}); got {len(overlays)}"
         )
     for env_idx, env_primitives in enumerate(overlays):
         if env_primitives is None:
@@ -240,9 +235,7 @@ class CameraCfg:
         unknown = sorted(set(kwargs) - _CAMERA_CFG_FIELDS)
         if unknown:
             allowed = ", ".join(sorted(_CAMERA_CFG_FIELDS))
-            raise ValueError(
-                f"unknown camera_kwargs key(s): {unknown}; supported keys: {allowed}"
-            )
+            raise ValueError(f"unknown camera_kwargs key(s): {unknown}; supported keys: {allowed}")
         return cls(**dict(kwargs))
 
 
@@ -924,21 +917,30 @@ class SimBackend(abc.ABC):
             Optional dictionary. Backends MAY include a ``"timing"`` key with
             per-substep timings in milliseconds (e.g. ``set_state_mask_ms``,
             ``set_state_data_slice_ms``, ...). Callers MUST treat ``None`` or
-            missing keys as "not reported" — the outer wall-clock measurement in
-            ``DomainRandomizationManager.reset`` (``dr_reset_set_state_ms``)
-            remains authoritative for total set_state time.
+            missing keys as "not reported"; the caller that owns the reset
+            transaction remains authoritative for total ``set_state`` wall-clock
+            time.
         """
 
     @abc.abstractmethod
     def get_dr_capabilities(self) -> DomainRandomizationCapabilities:
         """Return supported domain-randomization capabilities for this backend."""
 
-    def apply_init_randomization(self, plan: InitRandomizationPlan) -> None:
-        """Apply cold-path model/materialization randomization."""
-        if plan.is_empty():
-            return
+    def get_reset_term_default(self, term: str) -> np.ndarray:
+        """Return the authoritative default table for a curated reset term.
+
+        Without fixed variants the tail shape is the canonical model table, for
+        example ``(nbody,)`` for ``body_mass``. With fixed variants the returned
+        table is per-environment, for example ``(num_envs, nbody)``. Callers must
+        treat the result as read-only; adapters return detached copies.
+        """
+        _validate_reset_term(term)
+        if not self.get_dr_capabilities().supports_reset_term(term):
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not support reset term '{term}'"
+            )
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not support init-lifecycle randomization"
+            f"{self.__class__.__name__} does not expose reset term defaults for '{term}'"
         )
 
     def materialize(self) -> None:

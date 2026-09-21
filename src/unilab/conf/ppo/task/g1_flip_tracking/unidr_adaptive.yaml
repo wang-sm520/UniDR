@@ -1,0 +1,32 @@
+# @package _global_
+defaults:
+  - /task/g1_flip_tracking/unidr_comparison
+  - _self_
+
+# Turn off only source adaptation with unidr.adaptive.enabled=false.
+# That control retains the same independent probes and periodic training resets.
+unidr:
+  adaptive:
+    enabled: true
+    ema_alpha: 0.2
+    deadband: 0.02
+    max_change: 0.02
+    min_ratio: 0.10
+    max_ratio: 0.70
+    gain: 0.10
+    weight_adaptation: true
+    stable_error: 0.20
+    stable_survival: 0.95
+    stable_return: 0.80
+    stable_windows: 3
+    failure_weight_min: 0.05
+    weight_step: 0.01
+    probe:
+      interval: 100
+      horizon: 224
+      seed: 1
+      error_cap: 0.5
+      return_min: 0.0
+      # Sum positive reward rates (8.5) * dt (0.02) * horizon (224).
+      # Negative returns clip to zero; raw returns are always logged.
+      return_max: 38.08

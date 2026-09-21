@@ -21,6 +21,9 @@ def test_unisim_dependency_uses_an_approved_source() -> None:
     direct_url = distribution("unisim-core").read_text("direct_url.json")
 
     local_checkout = os.environ.get("UNILAB_LOCAL_UNISIM")
+    bundled_checkout = _REPO_ROOT / "vendor" / "unisim"
+    if local_checkout is None and bundled_checkout.is_dir():
+        local_checkout = str(bundled_checkout)
     if local_checkout:
         import unisim
 
@@ -86,11 +89,12 @@ def test_mujoco_backend_import_path_does_not_eagerly_import_motrix() -> None:
         print("mujoco_runtime", "mujoco" in sys.modules)
         print("mujoco_backend", "unisim.backend.mujoco.backend" in sys.modules)
 
-        if importlib.util.find_spec("mujoco_uni") is not None:
+        try:
             import unisim.backend.mujoco.backend
-            print("mujoco_backend imported")
-        else:
+        except ImportError:
             print("mujoco_backend skipped")
+        else:
+            print("mujoco_backend imported")
 
         print("motrix_backend", "unisim.backend.motrix.backend" in sys.modules)
         print("motrixsim", "motrixsim" in sys.modules)

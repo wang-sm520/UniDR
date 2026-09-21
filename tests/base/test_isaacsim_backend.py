@@ -216,13 +216,12 @@ def test_env_cleanup_hook_reaps_isaacsim_worker(backend: IsaacSimBackend) -> Non
             shared_memory.SharedMemory(name=name, create=False)
 
 
-def test_contact_sensor_uses_negotiated_worker_reporter(backend: IsaacSimBackend) -> None:
+def test_contact_sensor_is_explicitly_unsupported(backend: IsaacSimBackend) -> None:
     metadata = backend._scene_metadata
     assert metadata is not None
-    assert "foot_contact" not in metadata.unsupported_sensors
-    np.testing.assert_array_equal(backend.get_sensor_data("foot_contact"), np.zeros((NUM_ENVS, 1)))
-    backend.step(np.ones((NUM_ENVS, 3), dtype=np.float32), nsteps=1)
-    np.testing.assert_array_equal(backend.get_sensor_data("foot_contact"), np.ones((NUM_ENVS, 1)))
+    assert "foot_contact" in metadata.unsupported_sensors
+    with pytest.raises(NotImplementedError, match="contact-force reporting"):
+        backend.get_sensor_data("foot_contact")
     # Non-contact sensors remain available through the inherited cached path.
     assert backend.get_sensor_data("base_gyro").shape == (NUM_ENVS, 3)
 

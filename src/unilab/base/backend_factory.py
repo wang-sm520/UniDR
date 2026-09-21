@@ -44,16 +44,12 @@ def _legacy_genesis_device_option_error(exc: TypeError) -> bool:
 def env_backend_kwargs(cfg: "EnvCfg") -> dict[str, Any]:
     """Translate ``EnvCfg`` backend knobs into UniSim adapter options."""
     result: dict[str, Any] = {
-        "post_step_forward_sensor": cfg.post_step_forward_sensor,
         "superdex_num_workers": cfg.superdex_num_workers,
         "superdex_assets_root": cfg.superdex_assets_root,
         "superdex_effort_limits": cfg.superdex_effort_limits,
         "superdex_allow_contact_approximation": cfg.superdex_allow_contact_approximation,
         "motrix_max_iterations": cfg.motrix_max_iterations,
-        "chunk_size": cfg.chunk_size,
-        "adaptive_chunk_size": cfg.adaptive_chunk_size,
         "cpu_ids": cfg.cpu_ids,
-        "bench_nsteps": cfg.sim_substeps,
         "mjwarp_nconmax": cfg.mjwarp_nconmax,
         "mjwarp_njmax": cfg.mjwarp_njmax,
         "newton_device": cfg.newton_device,
@@ -74,6 +70,10 @@ def env_backend_kwargs(cfg: "EnvCfg") -> dict[str, Any]:
         "isaacsim_render_width": cfg.isaacsim_render_width,
         "isaacsim_render_height": cfg.isaacsim_render_height,
     }
+    for name in ("motrix_disable_self_collision", "genesis_enable_self_collision"):
+        value = getattr(cfg, name)
+        if value is not None:
+            result[name] = value
     # Keep the optional key absent for legacy unisim-core releases that do not
     # know about Genesis' explicit device argument.  Once a rank selects a
     # device the key is added below and ``create_backend`` supplies a narrow

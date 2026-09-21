@@ -1,0 +1,14 @@
+# @package _global_
+# Native --profile comparison owner.
+defaults:
+  - /task/g1_flip_tracking/unidr_isaacsim
+  - _self_
+
+algo:
+  max_iterations: 20000
+  resume: false
+  load_run: "-1"
+  resume_path: null
+
+env:
+  seed: 2

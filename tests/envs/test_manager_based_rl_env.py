@@ -7,7 +7,6 @@ from typing import Any, cast
 
 import numpy as np
 import pytest
-from uni_rl.env_contract import get_algo_capabilities
 from unisim.backend.base import DebugPrimitive, SimBackend
 
 import unilab.envs.manager_based_rl_env as manager_env_module
@@ -456,19 +455,6 @@ def _make_env(
         num_envs,
     )
     return env, backend
-
-
-def test_nonjoint_action_does_not_claim_joint_metadata() -> None:
-    env, _ = _make_env()
-    try:
-        capabilities = get_algo_capabilities(env)
-        assert capabilities.joint_names is None
-        np.testing.assert_array_equal(capabilities.action_low, [-np.inf])
-        np.testing.assert_array_equal(capabilities.action_high, [np.inf])
-        capabilities.action_low[:] = 0
-        np.testing.assert_array_equal(get_algo_capabilities(env).action_low, [-np.inf])
-    finally:
-        env.close()
 
 
 def test_training_progress_restore_survives_next_step_and_rejects_invalid_state():
@@ -952,6 +938,10 @@ def test_named_keyframe_snapshot_is_shared_by_entity_and_reset_cold_path() -> No
 
 
 def test_real_mujoco_backend_is_materialized_before_first_reset() -> None:
+    pytest.importorskip(
+        "unisim.backend.mujoco.backend",
+        reason="unisim-core MuJoCo adapter (mjbatch build) not available",
+    )
     scene = SceneCfg(
         model_file=str(ASSETS_ROOT_PATH / "robots" / "go2" / "scene_flat.xml"),
         entities={"robot": EntityCfg(root_body_name="base")},
@@ -1004,6 +994,10 @@ def test_real_mujoco_default_state_matches_qpos0_or_named_home(
     expected_root_z: float,
     expected_joint_pos: np.ndarray,
 ) -> None:
+    pytest.importorskip(
+        "unisim.backend.mujoco.backend",
+        reason="unisim-core MuJoCo adapter (mjbatch build) not available",
+    )
     joint_names = (
         "FL_hip_joint",
         "FL_thigh_joint",
@@ -1078,7 +1072,7 @@ def test_np_env_owns_substeps_autoreset_and_final_observation() -> None:
     assert initial_obs["critic"].shape == (2, 1)
     assert "log" in initial_info
     np.testing.assert_array_equal(initial.info["steps"], [0, 0])
-    assert env._dr_manager is None
+    assert not hasattr(env, "_dr_manager")
 
     state = env.step(np.array([[0.25], [0.5]], dtype=np.float32))
     assert backend.pre_step_control is None

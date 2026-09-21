@@ -33,6 +33,11 @@ for _task_name in G1_MOTION_TASKS:
     registry.register_env(_task_name, make_manager_based_rl_env, sim_backend="mujoco")
     registry.register_env(_task_name, make_manager_based_rl_env, sim_backend="motrix")
 
+# Experimental single-backend flip baselines; other motion tasks remain scoped
+# to the backends above. These paths require the UniSim motion mapping fixes.
+for _backend in ("isaacsim", "isaacgym", "genesis"):
+    registry.register_env("G1FlipTracking", make_manager_based_rl_env, sim_backend=_backend)
+
 # mjwarp is registered only for G1MotionTrackingSAC (benchmark scope, issue #1292);
 # mujoco-warp + warp-lang remain optional deps and other motion tasks keep
 # mujoco/motrix until their mjwarp paths are validated.

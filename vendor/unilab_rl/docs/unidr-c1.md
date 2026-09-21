@@ -1,0 +1,19 @@
+# C1: Deterministic Four-Source PPO
+
+Audited on 2026-09-14: UniLab `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` (clean) and unilab_rl v1.2.0 `79418e0cbff7b95fe6e49709b194454701ba20fa`, with root AGENTS.md, Apache-2.0 LICENSE and uv.lock reviewed. Consumer pins are unilab-rl 1.2.0 / RSL-RL 5.0.1; runtime uv.lock selects RSL-RL 5.5.0. Changes are local on `codex/unidr-c1-rollout`; no commit, PR, lockfile change or UniLab edit.
+
+Changed files: [algorithm owner](../src/uni_rl/algos/multi_source_ppo.py), [fake sources](../examples/unidr_fake.py), [Hydra entrypoint](../examples/unidr_fake_ppo.py), [config](../examples/configs/unidr_fake_ppo.yaml), [tests](../tests/algos/test_multi_source_ppo.py), [pytest import path](../pyproject.toml), [glossary](../CONTEXT.md), [ADR](adr/0001-multi-source-ppo-window.md), and this delivery record.
+
+Call `collect_source(ppo, env, spec, source_id, steps)` for each injected source, then `ppo.storage = prepare_ppo_window(ppo, sources, spec)` and the existing `ppo.update()`. Retain `sources` for raw data and provenance; the merged storage is only an optimization view. Source GAE uses timeout reward correction from final observations, true-terminal precedence, and the frozen critic at window tails. Advantages are normalized once after merging. The caller supplies version stamps and closes injected environments; the fake orchestration closes all sources on success or failure. Actor, critic and normalizers stay in eval mode; fixed, nontrivial normalizer buffers are verified unchanged throughout collection, GAE and optimization.
+
+Commands below ran in `/home/wsm/wang-sm/unilab_rl`. Existing isolated `.venv` (RSL 5.5.0) and `.venv-rsl501` (RSL 5.0.1) both use Python 3.10.12, Torch 2.8.0+cpu and TensorDict 0.14.0; other dependencies follow the runtime lock, not the complete UniLab environment. `--no-sync` preserves these CPU/version overrides. Repeat pytest and smoke commands with prefix `UV_PROJECT_ENVIRONMENT=.venv-rsl501` for consumer compatibility. Pyright uses the repository's configured `.venv` and existing VSCode Node 24 because system Node 12 cannot run it. No system dependencies or drivers were replaced.
+
+- Focused: `uv run --no-sync pytest tests/algos/test_multi_source_ppo.py -q`.
+- Format: `uv run --no-sync ruff check src tests examples`; `uv run --no-sync ruff format --check src tests examples`.
+- Types: `uv run --no-sync mypy src/uni_rl`; `PATH=/home/wsm/.vscode-server/cli/servers/Stable-520fb30b2d3d324b4cb2342f6e88e2cd93751de1/server:$PATH uv run --no-sync pyright`.
+- Full suite, including slow markers: `uv run --no-sync pytest -m '' --cov=src/uni_rl --cov-report=term:skip-covered -rs`.
+- Smoke: `uv run --no-sync python examples/unidr_fake_ppo.py`; `uv run --no-sync python examples/unidr_fake_ppo.py 'steps=[25,24,24,23]' normalize=true`.
+
+Results on both RSL versions: 38 C1 tests passed; full suite 411 passed / 35 skipped (CUDA/MPS requirements), no failures. Lint/format and mypy passed; pyright reported 0 errors / 0 warnings. Both smoke cases changed actor and critic parameters with 20 optimizer steps. Uniform counts were `[48,48,48,48]`; unequal counts were `[50,48,48,46]`, always 192 total. Tests observe all 192 unique samples in each of five epochs, raw-data preservation, hand-calculated GAE, timeout/final/dual flags, source and episode isolation, stale versions, exact quotas, malformed inputs and failure cleanup.
+
+This is fake-data validation of real feedforward PPO on CPU. Snapshots are caller-stamped, not published or verified across processes. Normalizer aggregation, scheduling, probes, checkpoint recovery, four-process runner/IPC and real backend adapters remain subsequent children. There is no evidence here of four-engine G1 flip support, four-GPU integration or training quality. MuJoCo is absent and remains reserved for final held-out testing.

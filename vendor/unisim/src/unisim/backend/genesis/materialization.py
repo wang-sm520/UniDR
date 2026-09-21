@@ -309,6 +309,7 @@ def build_genesis_scene(
     constraint_solver: str | None,
     friction_cone: str | None,
     solver_iterations: int | None,
+    enable_self_collision: bool | None = None,
 ) -> Any:
     """Construct the unbuilt Genesis scene with explicit global options."""
     gs = deps.genesis
@@ -335,6 +336,11 @@ def build_genesis_scene(
         )
     if solver_iterations is not None:
         rigid_kwargs["iterations"] = int(solver_iterations)
+    if enable_self_collision is not None:
+        if not isinstance(enable_self_collision, bool):
+            raise TypeError("genesis enable_self_collision must be bool or None")
+        # Genesis filters equal articulation roots, preserving imported floor contacts.
+        rigid_kwargs["enable_self_collision"] = enable_self_collision
     gravity_tuple = tuple(float(component) for component in np.asarray(gravity, dtype=np.float64))
     return gs.Scene(
         sim_options=gs.options.SimOptions(dt=float(sim_dt), gravity=gravity_tuple),

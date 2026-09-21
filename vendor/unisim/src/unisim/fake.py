@@ -15,7 +15,11 @@ class FakeBackend(SimBackend):
 
     backend_type = "fake"
 
-    def __init__(self, num_envs: int = 2, num_actuators: int = 1) -> None:
+    def __init__(
+        self,
+        num_envs: int = 2,
+        num_actuators: int = 1,
+    ) -> None:
         if num_envs <= 0 or num_actuators <= 0:
             raise ValueError("num_envs and num_actuators must be positive")
         self._num_envs = num_envs
@@ -24,6 +28,7 @@ class FakeBackend(SimBackend):
         self._qvel = np.zeros_like(self._qpos)
         self._ctrl = np.zeros_like(self._qpos)
         self._step_count = 0
+        self._materialized = False
 
     @property
     def num_envs(self) -> int:
@@ -114,6 +119,14 @@ class FakeBackend(SimBackend):
 
     def get_dr_capabilities(self) -> DomainRandomizationCapabilities:
         return DomainRandomizationCapabilities()
+
+    def materialize(self) -> None:
+        if self._materialized:
+            return
+        self._materialized = True
+
+    def get_playback_model(self, env_index: int | None = None):
+        return self
 
     @property
     def capabilities(self) -> frozenset[BackendCapability]:

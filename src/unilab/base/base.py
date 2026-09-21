@@ -10,6 +10,7 @@ import numpy as np
 from unisim.backend.base import BackendPlayRenderPlan, CameraCfg, DebugOverlayGetter
 
 from .scene import SceneCfg
+from .variants import FixedModelVariantCatalogCfg
 
 OnPlaybackFrameFn = Callable[[int, np.ndarray], "np.ndarray | None"]
 
@@ -33,6 +34,9 @@ class EnvCfg:
     """
 
     scene: SceneCfg | None = None
+    # Task-owned identity selected once during backend construction.  The
+    # descriptor remains engine-neutral; UniLab never compiles or opens it.
+    fixed_model_variants: FixedModelVariantCatalogCfg | None = None
     sim_dt: float = 0.01
     max_episode_seconds: Optional[float] = None
     ctrl_dt: float = 0.01
@@ -50,9 +54,10 @@ class EnvCfg:
     superdex_effort_limits: Optional[list[float]] = None
     superdex_allow_contact_approximation: bool = False
     motrix_max_iterations: Optional[int] = None
-    post_step_forward_sensor: bool = False
-    adaptive_chunk_size: bool = True
-    chunk_size: Optional[int] = None
+    # None preserves the adapter's native collision settings. These cold-path
+    # controls affect robot self-contact, not contact with the environment.
+    motrix_disable_self_collision: Optional[bool] = None
+    genesis_enable_self_collision: Optional[bool] = None
     # Explicit CPU block owned by this env's process (Linux affinity only).
     # ``cpu_ids[i]`` pins MuJoCo BatchEnvPool worker thread ``i`` to one CPU;
     # env construction also confines the owning process to the same block and
@@ -121,6 +126,13 @@ class EnvCfg:
         """
         if self.sim_dt > self.ctrl_dt:
             raise ValueError("sim_dt must be less than or equal to ctrl_dt")
+        if self.fixed_model_variants is not None and not isinstance(
+            self.fixed_model_variants, FixedModelVariantCatalogCfg
+        ):
+            raise TypeError(
+                "fixed_model_variants must be FixedModelVariantCatalogCfg or None, "
+                f"got {type(self.fixed_model_variants).__name__}"
+            )
         if (
             isinstance(self.superdex_num_workers, bool)
             or not isinstance(self.superdex_num_workers, int)
@@ -199,6 +211,12 @@ class EnvCfg:
                 "genesis_device_id must be a non-negative integer or None, "
                 f"got {self.genesis_device_id!r}"
             )
+        for name, value in (
+            ("motrix_disable_self_collision", self.motrix_disable_self_collision),
+            ("genesis_enable_self_collision", self.genesis_enable_self_collision),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"{name} must be bool or None, got {value!r}")
         for name, value in (
             ("genesis_integrator", self.genesis_integrator),
             ("genesis_constraint_solver", self.genesis_constraint_solver),

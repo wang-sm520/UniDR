@@ -1,0 +1,54 @@
+# @package _global_
+# Single-backend baselines share policy I/O and the actual 29-DoF flip clip.
+defaults:
+  - /task/g1_flip_tracking/motrix
+  - _self_
+
+algo:
+  num_envs: 2048
+  empirical_normalization: false
+  algorithm:
+    disable_finite_checks: false
+
+env:
+  # Preserve the original baseline profile independently of native Motrix.
+  actions:
+    joint_pos:
+      scale: 0.25
+  scene:
+    entities:
+      robot:
+        # Tracking uses body states; these baselines do not query geometry.
+        geom_names: null
+  commands:
+    motion:
+      params:
+        truncate_on_clip_end: true
+  terminations:
+    # Reference-relative tests permit the clip's inversion and flight.
+    anchor_ori:
+      params: {threshold: 0.8}
+    undesired_contacts: null
+    motion_clip_end:
+      func: unilab.tasks.motion_tracking.common.manager_terms.motion_clip_end
+      params: {command_name: motion}
+      time_out: true
+
+reward:
+  motion_global_root_pos:
+    weight: 1.0
+  motion_body_pos:
+    weight: 1.0
+  motion_body_ori:
+    weight: 1.0
+  motion_ee_body_pos_z: null
+  action_rate_l2:
+    weight: -0.05
+  undesired_contacts: null
+
+training:
+  no_play: true
+  sim2sim_strict: true
+
+play_profile:
+  enabled: false

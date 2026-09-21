@@ -288,7 +288,11 @@ class RslRlVecEnvWrapper:
         infos: dict[str, torch.Tensor | TensorDict | dict[str, Any]] = {}
         done_idx = torch.nonzero(dones).flatten()
         if len(done_idx) > 0:
-            infos["time_outs"] = to_torch(state.truncated, self.device).bool()
+            # Failure can coincide with the horizon; only a pure timeout bootstraps.
+            infos["time_outs"] = (
+                to_torch(state.truncated, self.device).bool()
+                & ~to_torch(state.terminated, self.device).bool()
+            )
 
             final_observation = self._resolve_final_observation(state)
             terminal_contract = resolve_terminal_observation_contract(

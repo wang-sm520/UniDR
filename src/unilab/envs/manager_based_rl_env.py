@@ -14,7 +14,6 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
-from uni_rl.env_contract import EnvAlgoCapabilities
 from unisim.backend.base import DebugOverlayGetter, DebugPrimitive, SimBackend
 
 from unilab.base.backend_factory import create_backend, env_backend_kwargs
@@ -28,6 +27,10 @@ from unilab.base.entity import EntityCfg, EntityScene
 from unilab.base.np_env import NpEnv, NpEnvState
 from unilab.base.reset_state import ResetStateTransaction
 from unilab.base.scene import SceneCfg, resolve_scene_default_qpos
+from unilab.base.variants import (
+    _build_fixed_variant_plan,
+    _require_fixed_variant_support,
+)
 from unilab.dtype_config import get_global_dtype
 from unilab.managers import (
     ActionManager,
@@ -311,28 +314,6 @@ class ManagerBasedRlEnv(NpEnv):
             high=np.inf,
             shape=(self.action_manager.total_action_dim,),
             dtype=get_global_dtype(),
-        )
-
-    @property
-    def algo_capabilities(self) -> EnvAlgoCapabilities:
-        """Expose resolved joint action order, never infer it from scene order."""
-        from unilab.envs.mdp.actions.actions import BaseAction
-
-        names: list[str] = []
-        joint_names = None
-        for name in self.action_manager.active_terms:
-            term = self.action_manager.get_term(name)
-            if not isinstance(term, BaseAction):
-                break
-            names.extend(term.target_names)
-        else:
-            if len(names) == len(set(names)):
-                joint_names = tuple(names)
-        space = self.action_space
-        return EnvAlgoCapabilities(
-            action_low=space.low.copy(),
-            action_high=space.high.copy(),
-            joint_names=joint_names,
         )
 
     @property
@@ -802,6 +783,9 @@ def make_manager_based_rl_env(
         )
 
     cfg.validate()
+    if cfg.fixed_model_variants is not None and cfg.scene is not None:
+        # Validate the complete task identity before allocating backend resources.
+        cfg.scene.fixed_variant_plan = _build_fixed_variant_plan(cfg.fixed_model_variants, num_envs)
     # Constrain the process before backend materialization so native pools size
     # themselves from the rank-owned CPU block.
     apply_env_cpu_runtime(cfg.cpu_ids)
@@ -819,6 +803,10 @@ def make_manager_based_rl_env(
         **backend_kwargs,
     )
     try:
+        if cfg.scene.fixed_variant_plan is not None:
+            _require_fixed_variant_support(
+                backend.get_dr_capabilities(), cfg.scene.fixed_variant_plan
+            )
         return ManagerBasedRlEnv(cfg, backend, num_envs)
     except Exception:
         backend.cleanup_scene_assets()

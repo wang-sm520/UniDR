@@ -92,6 +92,7 @@ reportMissingModuleSource = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "slow: long-running training or smoke tests",
 ]

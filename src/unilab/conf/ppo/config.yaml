@@ -56,19 +56,6 @@ algo:
 
 training:
   task_name: Go1JoystickFlat
-  multi_source: null
-  source_timing:
-    enabled: false
-  validation:
-    gate: null
-    output_dir: null
-    warmup_updates: 2
-  evaluation:
-    enabled: false
-    seeds: [101, 102, 103, 104]
-    num_envs: 25
-    output_dir: null
-    record_video: false
   # list[int] | null; null/[] keeps single-device behavior, [d] selects one
   # CUDA device, and [d0..dN-1] launches one RSL-RL worker per device.
   # algo.num_envs is per rank; do not set this together with training.device.
@@ -144,13 +131,6 @@ viser:
   env_idx: 0
   display_mode: all
   max_envs: 16
-
-env:
-  post_step_forward_sensor: false
-  # adaptive_chunk_size: auto-tune the MuJoCo BatchEnvPool chunk_size at materialize
-  # (cache-backed). chunk_size (int) manually overrides and wins; null => use default.
-  adaptive_chunk_size: true
-  chunk_size: null
 
 hydra:
   run:
