@@ -2,12 +2,12 @@
 # Orchestration only: native PPO, runtime audit, then the fixed MuJoCo holdout.
 set -euo pipefail
 if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 NEW_EXPERIMENT_ROOT [NUM_ENVS=1024] [ITERATIONS=20000]" >&2
+  echo "Usage: $0 NEW_EXPERIMENT_ROOT [NUM_ENVS=4096] [ITERATIONS=5000]" >&2
   exit 2
 fi
 experiment_root=$(realpath -m -- "$1")
-num_envs=${2:-1024}
-iterations=${3:-20000}
+num_envs=${2:-4096}
+iterations=${3:-5000}
 [[ $num_envs =~ ^[1-9][0-9]*$ && $iterations =~ ^[1-9][0-9]*$ ]] || exit 2
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 mkdir -- "$experiment_root"

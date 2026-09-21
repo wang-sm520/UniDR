@@ -5,7 +5,8 @@ defaults:
   - _self_
 
 algo:
-  max_iterations: 20000
+  num_envs: 4096
+  max_iterations: 5000
   resume: false
   load_run: "-1"
   resume_path: null

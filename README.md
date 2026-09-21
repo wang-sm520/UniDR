@@ -1,13 +1,32 @@
-# UniDR：9-16-resume 历史源码恢复
+# UniDR：9-16-resume 历史基线与地面修复
 
 本分支恢复 **2026 年 9 月 16 日 16:56:31（北京时间）** 保存的 G1 flip
-训练源码。恢复工作在 9 月 21 日执行，提交时间保留真实重建时间。
+训练源码，随后按实验要求调整单源规模并修复 Isaac Sim 地面。
+纯历史恢复点为 `72b76f255e4a37ea7388895bb806a921f0758178`；恢复工作在
+9 月 21 日执行，提交时间保留真实重建时间。
 原始实验修改没有单独的 Git commit，因此本分支由三仓基线、当时的工作树补丁和
 源码 ZIP 重建，不是伪造的历史提交，也不加载旧模型续训。
 
 **这是尚未实现仿真器比例自适应的代码版本。** 来源调度器、动态配额采集器、独立
 probe、自适应配置与对应 runner/IPC 扩展都不在此版本。PPO 原有的 adaptive KL
-学习率调节仍然存在。后来的 Isaac Sim 共享地面修复及物理错误检测也没有加入。
+学习率调节仍然存在。当前分支已移植 Isaac Sim 共享地面修复及物理错误检测。
+
+## 当前分支的训练设置
+
+| 项目 | 四个单后端：各自独立训练 | 四后端联合：保持历史配置 |
+| --- | --- | --- |
+| 环境数量 | 每次 4096 | 每源 1024，总计 4096 |
+| 默认轮数 | 5000 | 10000；下方比较实验命令仍显式指定 5000 |
+| 每轮采集 | 24 步，98,304 transitions | 同样 98,304 transitions，各源固定 25% |
+| PPO 更新 | 5 epochs × 4 minibatches，20 次/轮 | 相同 |
+| 5000 轮总预算 | 每个模型 491,520,000 transitions、100,000 次优化 | 唯一模型相同总预算 |
+| 5000 轮最终 checkpoint | `model_4999.pt` | `model_4999.pt` |
+
+单源 owner 的 `*_comparison.yaml`、准备入口和队列默认值统一为 4096/5000。
+奖励、动作缩放、归一化、PPO 超参数、终止和 bootstrap 语义保持历史基线；
+联合 owner、runtime 和设备映射没有修改。共享地面修复同时作用于单源与联合中的
+Isaac Sim，避免其复制环境时重复复制无限碰撞平面。
+本次改动没有启动新的训练，也没有重启或修改正在运行的实验。
 
 ## 源码与完整性
 
@@ -26,18 +45,21 @@ history/2026-09-16/      # 原始归档、补丁、哈希及本次验证记录
 | uni_rl | `79418e0cbff7b95fe6e49709b194454701ba20fa` |
 | UniSim | `4270aa81d868744980db90dac6dd959d3f542f50` |
 
-恢复了 1228 个文件；ZIP 中的 644 个源码/配置文件逐字节匹配，历史训练源码未作修改。
+纯历史恢复提交包含 1228 个文件；当时 ZIP 中的 644 个源码/配置文件逐字节匹配。
+当前改动位于该提交之后；`history/2026-09-16/` 中的归档与证据仍原样保留。
 所有当时未追踪的 `src/`、`scripts/`、`examples/` 文件均在 ZIP 中。
 有 7 个当时未追踪的文档/测试文件未被归档，缺失清单见
 [重建清单](history/2026-09-16/reconstruction.json)，不能宣称完整工作树无遗漏。
 三个 owner 原有 Apache-2.0 LICENSE 均保留。
 
 原 ZIP SHA-256：`fe4f3a15c91069eb1d229fc1a3adbfedafe020827525f5198b51a112df6dbe3d`。
-本次新增的根 README、验证说明和环境清单不属于历史代码。
+根 README、后续验证说明和验证环境清单不属于历史代码。
 三 owner 现在位于同一个 Git 分支，运行时 Git 信息会记录这个重建提交；原始三仓
 SHA 和 dirty 状态保存在 [sources.json](history/2026-09-16/sources.json)。
 
-## 当时的单后端与四后端训练
+## 历史基线的单后端与四后端训练
+
+以下表格记录纯历史恢复点，单源当前规模见上节。
 
 四个单后端分别训练自己的模型，历史队列顺序为 **Motrix → Isaac Sim → Isaac Gym
 → Genesis**。四源联合训练通过中央 actor/critic 推理、分发 action、等待四源完成
@@ -125,20 +147,20 @@ mkdir -p "$UNIDR_ARCHIVE_ROOT/experiments"
 cd UniLab
 ```
 
-以下为训练用法，本次恢复没有执行这些训练。必须使用新的输出目录。
+以下为当前分支的训练用法，本次修改没有执行这些训练。必须使用新的输出目录。
 四种单后端顺序训练，并在各自结束后执行原版 MuJoCo 留出录制：
 
 ```bash
-bash scripts/run_single_comparison.sh "$UNIDR_ARCHIVE_ROOT/experiments/singles-new" 1024 20000
+bash scripts/run_single_comparison.sh "$UNIDR_ARCHIVE_ROOT/experiments/singles-new" 4096 5000
 ```
 
 仅训练某个单后端（示例 Motrix，其他选择 `isaacsim`、`isaacgym`、`genesis`）：
 
 ```bash
 uv run --no-sync python -m unilab.training.single_comparison motrix \
-  "$UNIDR_ARCHIVE_ROOT/experiments/motrix-new" --num-envs 1024 --iterations 20000
+  "$UNIDR_ARCHIVE_ROOT/experiments/motrix-new" --num-envs 4096 --iterations 5000
 uv run --no-sync train --algo ppo --task g1_flip_tracking --sim motrix \
-  --profile comparison algo.num_envs=1024 algo.max_iterations=20000 \
+  --profile comparison algo.num_envs=4096 algo.max_iterations=5000 \
   training.device=cuda:0 training.log_dir="$UNIDR_ARCHIVE_ROOT/experiments/motrix-new"
 ```
 
@@ -159,12 +181,14 @@ GPU 0/1/2，learner 使用 GPU 3，Motrix CPU。四卡配置通过映射检查�
 
 ## 验证和适用边界
 
-本次执行了源码哈希核验、四个单源和两种联合布局的配置检查、隔离环境导入检查、
+历史恢复时执行了源码哈希核验、四个单源和两种联合布局的配置检查、隔离环境导入检查、
 PPO fake smoke，以及三个 owner 的格式、类型和测试检查。
 实际结果与未通过项目见 [VALIDATION.md](history/2026-09-16/VALIDATION.md)。
 为保留历史字节，使用 `ruff format --check` / `ruff check` 等只读门禁，没有执行
 会改写历史源文件的格式修复。既有类型/测试问题如实保留。
 
-本分支用于复查旧实验和重复研究，不表示旧物理缺陷已修复，也不保证相同 seed 得到
-逐位相同的 GPU 轨迹或相同的 sim2sim 成功率。没有把后来的成功率统计、录像工具或
-五秒站立评测代码倒填进 9 月 16 日源码。
+当前增量的地面修复、验证命令和结果见
+[分支改动验证](docs/9-16-resume-ground-fix.md)。本轮通过纯 USD 结构测试和 CPU
+回归验证，未在此分支重新启动真实 Isaac Sim 4096 环境容量测试；既有真实引擎
+证据与本轮测试分开记录。相同 seed 不保证逐位相同的 GPU 轨迹或 sim2sim 成功率。
+没有加入后来的来源自适应、成功率统计、录像工具或五秒站立评测代码。

@@ -74,6 +74,14 @@ _PROTOCOL_PATH = Path(protocol.__file__).resolve()
 _DEFAULT_WORKER_TIMEOUT_S = 120.0
 _SHUTDOWN_TIMEOUT_S = 5.0
 _STDERR_TAIL_BYTES = 4096
+_FATAL_PHYSICS_MARKERS = (
+    b"simulation will miss interactions",
+    b"pxgcudadevicememoryallocator failed to allocate memory",
+    b"failed to create physx scene",
+    b"patch buffer overflow",
+    b"contact buffer overflow",
+    b"collision stack overflow",
+)
 
 _ROOT_QPOS_DIM = 7
 _ROOT_QVEL_DIM = 6
@@ -310,6 +318,8 @@ class MjcfSubprocessBackend(SimBackend):
         self._shm_handles: dict[str, shared_memory.SharedMemory] = {}
         self._slots: dict[str, np.ndarray] = {}
         self._stderr_file: Any = None
+        self._stderr_reader: BinaryIO | None = None
+        self._stderr_overlap = b""
         self._worker_dead_error: SubprocessWorkerError | None = None
         self._model_info: SubprocessModelInfo | None = None
         # Optional diagnostics supplied by workers that maintain private
@@ -376,9 +386,7 @@ class MjcfSubprocessBackend(SimBackend):
                 f"got {type(worker_init_payload).__name__}"
             )
 
-        self._stderr_file = tempfile.TemporaryFile(
-            mode="w+b", prefix=f"{self._BACKEND_LABEL}_worker_stderr_"
-        )
+        self._open_worker_log()
         try:
             self._proc = subprocess.Popen(
                 [*command, "--protocol", str(self._protocol_entrypoint())],
@@ -389,6 +397,7 @@ class MjcfSubprocessBackend(SimBackend):
                 env=env,
             )
         except OSError as exc:
+            self.close()
             raise self._worker_error(
                 f"failed to spawn {self._BACKEND_LABEL} worker {command}: {exc}"
             ) from exc
@@ -648,17 +657,59 @@ class MjcfSubprocessBackend(SimBackend):
     # Request/response plumbing
     # ------------------------------------------------------------------ #
 
+    def _open_worker_log(self) -> None:
+        log_dir = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+        log_dir = log_dir / "unisim" / "worker-logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        self._stderr_file = tempfile.NamedTemporaryFile(
+            mode="w+b",
+            prefix=f"{self._BACKEND_LABEL}_",
+            suffix=".log",
+            dir=log_dir,
+            delete=False,
+        )
+        # A separate file description is essential: seeking the descriptor
+        # inherited by the worker would move its write position as well.
+        self._stderr_reader = open(self._stderr_file.name, "rb", buffering=0)
+        logger.warning("%s worker stderr log: %s", self._BACKEND_LABEL, self._stderr_file.name)
+
+    def _check_worker_stderr(self, cmd: str) -> None:
+        reader = self._stderr_reader
+        if reader is None:
+            return
+        while chunk := reader.read(65536):
+            recent = self._stderr_overlap + chunk
+            lowered = recent.lower()
+            matches = [lowered.find(marker) for marker in _FATAL_PHYSICS_MARKERS]
+            if any(position >= 0 for position in matches):
+                position = min(position for position in matches if position >= 0)
+                tail = recent[max(0, position - 1024) : position + 2048].decode(
+                    "utf-8", errors="replace"
+                )
+                error = self._worker_error(
+                    f"{self._BACKEND_LABEL} rejected {cmd}: fatal physics diagnostic; "
+                    f"worker log: {self._stderr_file.name}\n{tail}",
+                    stderr_tail=tail,
+                )
+                self._worker_dead_error = error
+                self.close()
+                raise error
+            # Keep split native writes searchable across blocks and barriers.
+            self._stderr_overlap = recent[-_STDERR_TAIL_BYTES:]
+
     def _stderr_tail(self) -> str:
-        if self._stderr_file is None:
+        reader = self._stderr_reader
+        if reader is None:
             return ""
+        position = reader.tell()
         try:
-            self._stderr_file.flush()
-            self._stderr_file.seek(0, os.SEEK_END)
-            size = self._stderr_file.tell()
-            self._stderr_file.seek(max(0, size - _STDERR_TAIL_BYTES))
-            return str(self._stderr_file.read().decode("utf-8", errors="replace"))
+            size = reader.seek(0, os.SEEK_END)
+            reader.seek(max(0, size - _STDERR_TAIL_BYTES))
+            return reader.read().decode("utf-8", errors="replace")
         except Exception:
             return ""
+        finally:
+            reader.seek(position)
 
     def _request(self, cmd: str, payload: Any, *, expect: str) -> Any:
         if self._worker_dead_error is not None:
@@ -671,6 +722,7 @@ class MjcfSubprocessBackend(SimBackend):
             raise self._worker_error(
                 f"{self._BACKEND_LABEL} backend is not materialized; call materialize() first"
             )
+        self._check_worker_stderr(cmd)
         if proc.poll() is not None:
             error = self._worker_error(
                 f"{self._BACKEND_LABEL} worker exited with code {proc.returncode} before {cmd}; "
@@ -682,6 +734,7 @@ class MjcfSubprocessBackend(SimBackend):
         try:
             protocol.send_message(cast(BinaryIO, proc.stdin), cmd, payload)
             message = self._recv_with_timeout(proc.stdout, self._worker_timeout_s, cmd)
+            self._check_worker_stderr(cmd)
         except SubprocessWorkerError as exc:
             self._worker_dead_error = exc
             self._kill_worker()
@@ -735,6 +788,9 @@ class MjcfSubprocessBackend(SimBackend):
         shm_handles, self._shm_handles = list(self._shm_handles.values()), {}
         self._slots = {}
         stderr_file, self._stderr_file = self._stderr_file, None
+        stderr_reader, self._stderr_reader = self._stderr_reader, None
+        if stderr_reader is not None:
+            stderr_reader.close()
         try:
             atexit.unregister(self.close)
         except Exception:

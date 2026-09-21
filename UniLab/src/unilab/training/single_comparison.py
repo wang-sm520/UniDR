@@ -16,7 +16,7 @@ from unilab.training.synchronous import SOURCE_ORDER, build_manifest
 
 
 def prepare_run(
-    root: Path, run_dir: Path, source: str, *, num_envs: int = 1024, iterations: int = 20000
+    root: Path, run_dir: Path, source: str, *, num_envs: int = 4096, iterations: int = 5000
 ) -> dict:
     """Validate and fingerprint the exact config/assets without constructing physics."""
     if source not in SOURCE_ORDER or min(num_envs, iterations) < 1:
@@ -58,8 +58,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", choices=SOURCE_ORDER)
     parser.add_argument("run_dir", type=Path)
-    parser.add_argument("--num-envs", type=int, default=1024)
-    parser.add_argument("--iterations", type=int, default=20000)
+    parser.add_argument("--num-envs", type=int, default=4096)
+    parser.add_argument("--iterations", type=int, default=5000)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[3]
     manifest = prepare_run(

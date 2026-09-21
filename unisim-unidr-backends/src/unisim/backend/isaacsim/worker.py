@@ -105,6 +105,83 @@ def _resolve_articulation_root_prim_path(usd_path: str, root_name: str) -> str:
     return relative
 
 
+def _share_static_ground(stage: Any, usd_path: str, env_paths: list[str]) -> list[str]:
+    """Extract invariant horizontal planes before PhysX parses cloned assets.
+
+    The MJCF importer wraps its infinite floor in a kinematic articulation.
+    Replicating that floor creates quadratic broadphase/aggregate pair demand,
+    even with collision groups. References preserve composed transforms and
+    material bindings; no default ground material is substituted here.
+    """
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
+
+    source = Usd.Stage.Open(usd_path)
+    root = source.GetDefaultPrim().GetPath()
+    planes, wrappers = [], set()
+    materials = []
+    for prim in source.Traverse():
+        if prim.IsA(UsdShade.Material):
+            materials.append(prim.GetPath())
+        if not prim.IsA(UsdGeom.Plane) or not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if not UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get():
+            continue
+        axis = UsdGeom.Plane(prim).GetAxisAttr().Get()
+        normal = Gf.Vec3d(*{"X": (1, 0, 0), "Y": (0, 1, 0), "Z": (0, 0, 1)}[axis])
+        transform = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        normal = transform.GetInverse().GetTranspose().TransformDir(normal).GetNormalized()
+        if abs(normal[2]) < 1 - 1e-8:
+            raise ValueError("shared ground requires a static horizontal collision plane")
+        parent = prim
+        while parent and parent.GetPath().HasPrefix(root):
+            if any(a.ValueMightBeTimeVarying() for a in parent.GetAttributes()):
+                raise ValueError("shared ground requires a static horizontal collision plane")
+            if parent.HasAPI(UsdPhysics.RigidBodyAPI) or parent.HasAPI(
+                UsdPhysics.ArticulationRootAPI
+            ):
+                for child in Usd.PrimRange(parent):
+                    if child.HasAPI(UsdPhysics.RigidBodyAPI):
+                        if not UsdPhysics.RigidBodyAPI(child).GetKinematicEnabledAttr().Get():
+                            raise ValueError(
+                                "shared ground requires a static horizontal collision plane"
+                            )
+                    if child.HasAPI(UsdPhysics.CollisionAPI) and not child.IsA(UsdGeom.Plane):
+                        raise ValueError(
+                            "shared ground requires an isolated static horizontal plane"
+                        )
+                wrappers.add(parent.GetPath())
+            parent = parent.GetParent()
+        planes.append(prim.GetPath())
+    if not planes:
+        return []
+
+    shared = stage.DefinePrim("/World/sharedGround")
+    shared.GetReferences().AddReference(usd_path)
+    shared_path = shared.GetPath()
+    keep = [p.ReplacePrefix(root, shared_path) for p in planes + materials]
+    # Retain plane ancestors (transforms, inherited material bindings) and all
+    # material dependencies. Prune robot, joints and unrelated scene objects.
+    for prim in reversed(list(Usd.PrimRange(shared))):
+        path = prim.GetPath()
+        if not any(path.HasPrefix(k) or k.HasPrefix(path) for k in keep):
+            prim.SetActive(False)
+    for path in wrappers:
+        for target in [
+            shared_path,
+            *[stage.GetPrimAtPath(p + "/Robot").GetPath() for p in env_paths],
+        ]:
+            prim = stage.GetPrimAtPath(path.ReplacePrefix(root, target))
+            if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+                prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
+    for env_path in env_paths:
+        robot_path = stage.GetPrimAtPath(env_path + "/Robot").GetPath()
+        for path in planes:
+            stage.GetPrimAtPath(path.ReplacePrefix(root, robot_path)).SetActive(False)
+    return [str(shared_path)]
+
+
 class _WorkerContext:
     def __init__(self, protocol: Any) -> None:
         self.protocol = protocol
@@ -306,16 +383,21 @@ class _WorkerContext:
         sim_cfg = sim_utils.SimulationCfg(dt=self.sim_dt, device=self.device)
         self.sim = sim_utils.SimulationContext(sim_cfg)
         if render_mode != "none":
-            # Use IsaacSim's standard grid-world floor for rendered playback.
-            # The MJCF floor is retained for the task/physics contract, while
-            # this native floor supplies the normal IsaacSim visual ground.
+            # The native grid is visual only: training and play share exactly
+            # the same imported physical ground, including its material.
             ground_cfg = sim_utils.GroundPlaneCfg()
             ground_cfg.func("/World/defaultGroundPlane", ground_cfg)
+            from pxr import Usd, UsdPhysics
+
+            for prim in Usd.PrimRange(self.sim.stage.GetPrimAtPath("/World/defaultGroundPlane")):
+                if prim.HasAPI(UsdPhysics.CollisionAPI):
+                    UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
         # IsaacLab's SimulationContext owns the singleton simulation stage and
         # must be materialized before assets/articulations bind to it.  Keep
         # this ordering explicit so a real Kit worker does not accidentally
         # construct an Articulation against an uninitialized context.
         self.robot = Articulation(robot_cfg)
+        ground_paths = _share_static_ground(self.sim.stage, converter.usd_path, self.env_prim_paths)
         if render_mode != "none":
             # MJCF scenes do not necessarily carry a renderer light.  This is
             # a real scene light (not a post-process or synthetic frame), and
@@ -360,6 +442,7 @@ class _WorkerContext:
                 self._physics_scene_path(),
                 "/World/collisions",
                 self.env_prim_paths,
+                global_paths=ground_paths,
             )
             self.collision_filtering_applied = True
         self.sim.reset()
