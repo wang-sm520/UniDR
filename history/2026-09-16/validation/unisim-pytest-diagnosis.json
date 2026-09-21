@@ -1,0 +1,29 @@
+{
+  "failed_test": "tests/test_debug_overlay.py::TestOnFrameEndToEnd::test_on_frame_paints_video_frames",
+  "child_failure_line": 39,
+  "child_line_text": "assert len(frames) == 2",
+  "preceding_lines": {
+    "35": ")",
+    "36": "assert result == out_path",
+    "37": "assert calls == [0, 1]",
+    "38": "frames = list(imageio.mimread(out_path))",
+    "39": "assert len(frames) == 2",
+    "40": "assert frames[0][..., 0].min() == 255",
+    "41": "print(\"ONFRAME-OK\")"
+  },
+  "artifact": "/tmp/pytest-of-wsm/pytest-318/test_on_frame_paints_video_fra0/play.gif",
+  "artifact_bytes": 79355,
+  "decoded_frame_count": 1,
+  "red_min": [
+    255
+  ],
+  "frame_shapes": [
+    [
+      720,
+      1280,
+      3
+    ]
+  ],
+  "diagnosis": "The two requested renders produced a GIF decoded as fewer than two frames; identical adjacent GIF frames may be coalesced by the encoder. The earlier on_frame call-count assertion passed. No physics/training failure is established.",
+  "historical_source_modified": false
+}

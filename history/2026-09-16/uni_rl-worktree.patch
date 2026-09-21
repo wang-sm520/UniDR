@@ -1,0 +1,4049 @@
+diff --git a/CONTEXT.md b/CONTEXT.md
+new file mode 100644
+index 0000000..23c9c02
+--- /dev/null
++++ b/CONTEXT.md
+@@ -0,0 +1,17 @@
++# Multi-source PPO Windows
++
++## Language
++
++**Window**: A complete, fixed transition budget collected under one policy weight version before a PPO update. Its normalization protocol identifies either one frozen version or the consecutive versions used at each control step.
++
++**Source**: An independently identified producer of environment transitions.
++
++**Segment**: Consecutive vector steps from one source, retaining separate environment and episode identities.
++
++**Quota**: The number of transitions requested from a source in a window, independent of its resident environment capacity.
++
++**Control step**: One centrally inferred action batch followed by one acknowledged environment step from every source.
++
++**Environment service**: An independently identified environment pool that executes actions without owning a policy or optimizer.
++
++**Recovery generation**: A new set of episodes beginning when all environment services reset after loading a complete training boundary.
+diff --git a/docs/adr/0001-multi-source-ppo-window.md b/docs/adr/0001-multi-source-ppo-window.md
+new file mode 100644
+index 0000000..f73c285
+--- /dev/null
++++ b/docs/adr/0001-multi-source-ppo-window.md
+@@ -0,0 +1,9 @@
++---
++status: accepted
++---
++
++# Preserve trajectories before preparing PPO batches
++
++The user authorized uniDR C1's in-memory window contract and PPO bridge on 2026-09-14. `uni_rl.algos.multi_source_ppo` retains source segments and uses the installed PPO's GAE before flattening into its existing feedforward storage, keeping learning in the RL runtime and preserving UniLab's injected env contract. Raw rewards and terminal data remain separate from the timeout-corrected optimization view, preventing cross-source GAE and source-local advantage normalization from changing the intended sample mix.
++
++Whole-pool segment lengths vary while capacity and total transitions stay fixed; this also varies the GAE horizon and must be recorded. C1 does not publish snapshots, merge normalizer statistics, introduce IPC or a persistent runner, or claim robot backend support. Those contracts require separate child approval. See [C1 delivery and validation](../unidr-c1.md) and UniLab ADR-0005 (obs/critic contract).
+diff --git a/docs/adr/0002-central-synchronous-ppo.md b/docs/adr/0002-central-synchronous-ppo.md
+new file mode 100644
+index 0000000..461da90
+--- /dev/null
++++ b/docs/adr/0002-central-synchronous-ppo.md
+@@ -0,0 +1,9 @@
++---
++status: accepted
++---
++
++# Central inference across synchronous environment services
++
++The user authorized the four-source plan on 2026-09-16: one actor/critic sends actions to isolated environment services and waits for every source before advancing the control step, borrowing PolySim's environment-axis scatter/gather organization. Native PPO normalization updates exactly once from the complete post-step observation batch; timeout final observations use those new statistics without contributing to them, while true terminations override timeout flags. This deliberately supersedes C1's frozen-normalizer restriction for the new synchronous runner, preserving the successful native Motrix training semantics and existing PPO optimizer/GAE.
++
++Each request has an acknowledged source/sequence identity and one in-flight step per source; a failure aborts the entire window without retry. Complete iteration checkpoints restore learner state and counters but reset all environment services into a new recovery generation, since physics snapshots are not part of this protocol. UniLab injects factories and task configuration, `uni_rl` owns services/collection/learning, and UniSim owns backend physics; MuJoCo remains a final holdout.
+diff --git a/docs/unidr-c1.md b/docs/unidr-c1.md
+new file mode 100644
+index 0000000..be6c1f0
+--- /dev/null
++++ b/docs/unidr-c1.md
+@@ -0,0 +1,19 @@
++# C1: Deterministic Four-Source PPO
++
++Audited on 2026-09-14: UniLab `b4e6b58fe0861a435fd19c0f0206bd84f4427a9c` (clean) and unilab_rl v1.2.0 `79418e0cbff7b95fe6e49709b194454701ba20fa`, with root AGENTS.md, Apache-2.0 LICENSE and uv.lock reviewed. Consumer pins are unilab-rl 1.2.0 / RSL-RL 5.0.1; runtime uv.lock selects RSL-RL 5.5.0. Changes are local on `codex/unidr-c1-rollout`; no commit, PR, lockfile change or UniLab edit.
++
++Changed files: [algorithm owner](../src/uni_rl/algos/multi_source_ppo.py), [fake sources](../examples/unidr_fake.py), [Hydra entrypoint](../examples/unidr_fake_ppo.py), [config](../examples/configs/unidr_fake_ppo.yaml), [tests](../tests/algos/test_multi_source_ppo.py), [pytest import path](../pyproject.toml), [glossary](../CONTEXT.md), [ADR](adr/0001-multi-source-ppo-window.md), and this delivery record.
++
++Call `collect_source(ppo, env, spec, source_id, steps)` for each injected source, then `ppo.storage = prepare_ppo_window(ppo, sources, spec)` and the existing `ppo.update()`. Retain `sources` for raw data and provenance; the merged storage is only an optimization view. Source GAE uses timeout reward correction from final observations, true-terminal precedence, and the frozen critic at window tails. Advantages are normalized once after merging. The caller supplies version stamps and closes injected environments; the fake orchestration closes all sources on success or failure. Actor, critic and normalizers stay in eval mode; fixed, nontrivial normalizer buffers are verified unchanged throughout collection, GAE and optimization.
++
++Commands below ran in `/home/wsm/wang-sm/unilab_rl`. Existing isolated `.venv` (RSL 5.5.0) and `.venv-rsl501` (RSL 5.0.1) both use Python 3.10.12, Torch 2.8.0+cpu and TensorDict 0.14.0; other dependencies follow the runtime lock, not the complete UniLab environment. `--no-sync` preserves these CPU/version overrides. Repeat pytest and smoke commands with prefix `UV_PROJECT_ENVIRONMENT=.venv-rsl501` for consumer compatibility. Pyright uses the repository's configured `.venv` and existing VSCode Node 24 because system Node 12 cannot run it. No system dependencies or drivers were replaced.
++
++- Focused: `uv run --no-sync pytest tests/algos/test_multi_source_ppo.py -q`.
++- Format: `uv run --no-sync ruff check src tests examples`; `uv run --no-sync ruff format --check src tests examples`.
++- Types: `uv run --no-sync mypy src/uni_rl`; `PATH=/home/wsm/.vscode-server/cli/servers/Stable-520fb30b2d3d324b4cb2342f6e88e2cd93751de1/server:$PATH uv run --no-sync pyright`.
++- Full suite, including slow markers: `uv run --no-sync pytest -m '' --cov=src/uni_rl --cov-report=term:skip-covered -rs`.
++- Smoke: `uv run --no-sync python examples/unidr_fake_ppo.py`; `uv run --no-sync python examples/unidr_fake_ppo.py 'steps=[25,24,24,23]' normalize=true`.
++
++Results on both RSL versions: 38 C1 tests passed; full suite 411 passed / 35 skipped (CUDA/MPS requirements), no failures. Lint/format and mypy passed; pyright reported 0 errors / 0 warnings. Both smoke cases changed actor and critic parameters with 20 optimizer steps. Uniform counts were `[48,48,48,48]`; unequal counts were `[50,48,48,46]`, always 192 total. Tests observe all 192 unique samples in each of five epochs, raw-data preservation, hand-calculated GAE, timeout/final/dual flags, source and episode isolation, stale versions, exact quotas, malformed inputs and failure cleanup.
++
++This is fake-data validation of real feedforward PPO on CPU. Snapshots are caller-stamped, not published or verified across processes. Normalizer aggregation, scheduling, probes, checkpoint recovery, four-process runner/IPC and real backend adapters remain subsequent children. There is no evidence here of four-engine G1 flip support, four-GPU integration or training quality. MuJoCo is absent and remains reserved for final held-out testing.
+diff --git a/docs/unidr-central-ppo.md b/docs/unidr-central-ppo.md
+new file mode 100644
+index 0000000..26730c6
+--- /dev/null
++++ b/docs/unidr-central-ppo.md
+@@ -0,0 +1,98 @@
++# Central four-source PPO delivery
++
++Accepted architecture: [ADR 0002](adr/0002-central-synchronous-ppo.md).
++Runtime base `79418e0cbff7b95fe6e49709b194454701ba20fa`, Apache-2.0;
++the local implementation is an uncommitted diff on `codex/unidr-c1-rollout`.
++The existing nine-file C1 delivery remains intact; only its common validated
++GAE/batch preparation was extracted behind its original fixed-normalizer checks.
++
++The approved umbrella is split into independent local children:
++
++| Child | Result | Owned changes |
++| --- | --- | --- |
++| U1 | Successful task profile on four backends | UniLab `unidr*.yaml`, reference/config tests and record |
++| U2 | Native central inference/normalization and source-local GAE | `algos/synchronous_ppo.py`, its tests, shared C1 helper, CONTEXT/ADR |
++| U3 | Synchronous environment services and cleanup | `ipc/synchronous_env.py`, its tests |
++| U4 | Learner lifecycle, logs and checkpoint recovery | `algos/synchronous_runner.py`, its tests and record |
++| U5 | Hydra/factory/device/asset wiring and integration | UniLab training owner, thin CLI, wiring tests and experiment record |
++| U6 | Fixed-final MuJoCo strict playback/video | UniLab holdout owner, thin CLI, tests and record |
++| U7 | Independent budget audit and curves | `logging/synchronous_report.py`, tests and thin report CLI |
++
++Each child has one main result, fewer than 15 files and at most 800 net hand-written
++lines. No PR or release was created. Public additions belong to this local runtime
++checkout; the UniLab consumer keeps RSL-RL 5.0.1 installed. The runtime's lock also
++uses 5.5.0; both versions are tested independently.
++
++`CentralCollector` retains raw dictionaries (including original group names),
++action/value/log-prob/Gaussian parameters, unmodified rewards, both done flags,
++final observations, bootstrap, source/env/episode/segment identities, window and
++policy versions, per-step normalizer versions, and recovery generation. Four
++services receive one action slice each; all responses must arrive before the next
++control step. No policy runs in an environment service.
++
++Policy weights remain fixed for 24 steps. Native normalizer updates consume only
++the complete post-step observation batch, including autoresets, once per step;
++timeout values use final observations with the updated statistics. True termination
++overrides timeout. Ordinary bootstrap comes from the next sampled old value; the
++last step uses the window-end critic. Native PPO computes GAE inside each source's
++continuous columns, then a separate full batch normalizes advantages globally.
++Optimization freezes normalizers explicitly and keeps all old sampling quantities.
++Every native update is checked for five complete epochs and 20 Adam steps.
++
++Raw data remains available through `runner.latest_window` during a run; it is not
++written for all 983 million transitions. Persistent JSONL/TensorBoard records
++source budgets, metrics, version stamps and optimizer/sample counters. Checkpoints
++are complete boundaries only; resume resets physics into a new generation and
++restores learner/normalizer/optimizer/LR/RNG/config identity, not simulation state.
++
++PolySim reference: `EmboMaster/PolySim` commit
++`0fdb349785479b5c0c30d3c676fae67025b8d34a` (root MIT license; setup metadata retains
++ASAP/BSD wording; no root lock or AGENTS found during audit). Its `env_client.py`
++source slices and concurrent scatter/gather, environment-only `hydra_server.py`,
++and environment-column storage guided the organization. None of its dual-optimizer,
++pre-step timeout, retry, missing-field fallback or remainder-dropping PPO paths
++was transplanted. The PPO and GAE implementation remains the installed RSL runtime.
++
++Run from this checkout:
++
++```bash
++UV_PROJECT_ENVIRONMENT=.venv-rsl501 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 COVERAGE_FILE=/tmp/unidr-rsl501-final-coverage uv run --no-sync pytest --cov=src/uni_rl
++OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 COVERAGE_FILE=/tmp/unidr-rsl55-final-coverage uv run --no-sync pytest --cov=src/uni_rl
++uv run --no-sync ruff check src tests
++uv run --no-sync ruff format --check src tests
++uv run --no-sync mypy src/uni_rl
++PATH=/home/wsm/.vscode-server/cli/servers/Stable-520fb30b2d3d324b4cb2342f6e88e2cd93751de1/server:$PATH uv run --no-sync pyright
++```
++
++The focused tests include a real four-spawn-service fake-data update, a stepwise
++native PPO oracle (statistics, old values/log-probs, returns, losses and parameters),
++hand-computed C1 GAE, every-epoch sample identities, int64 normalization above
++`2^24`, rejected stale revisions/payloads, and delayed/shared-memory cleanup.
++These validate fake-driven real PPO; robot support, physical capacity, full training
++and final transfer require the separate UniLab experiment evidence.
++
++Final runtime gates on 2026-09-16: **482 passed, 35 skipped, 3 deselected** under
++both RSL-RL 5.0.1 and 5.5.0, with 65% repository coverage (separate coverage files).
++The final runs took 41.89 and 44.27 seconds respectively.
++Ruff lint/format, Mypy (80 source files), and Pyright (zero errors/warnings) passed.
++Matplotlib is optional in the runtime environment; all 29 report tests, including
++PNG/PDF rendering, passed in the actual UniLab consumer environment. The independent
++capacity report verified all 100 completed iterations and the actual Adam/model
++state. Reported recovery histories follow explicit checkpoint ancestry, trim any
++abandoned parent tail, and require complete, contiguous committed iterations.
++
++Final independent review also added duplicate optimizer parameter-ID rejection
++before recovery and a clone of retained tail observations. The regression tests
++cover corrupt same-shaped parameter aliases and bit-exact preservation across
++environment buffer reuse. These two guards were added after the formal service
++started; that process keeps its already-loaded code. Its fresh run does not use
++recovery, and its synchronous services allocate new result arrays at each step.
++
++On 2026-09-16 the user selected the earlier periodic `model_5000.pt`, which contains
++5001 complete updates. Offline `report(..., expected_iterations=5001,
++num_envs=1024, final_checkpoint=run_dir / "model_5000.pt")` now audits that explicit
++committed prefix, while retaining `configured_max_iterations=10000` and recording
++excluded tail bytes. Default full-run audit behavior stays strict. The original
++configuration, manifest, metrics and checkpoint are never rewritten by the audit.
++The CLI exposes the same explicit flags; this is offline selection by the user,
++not selection based on MuJoCo performance.
+diff --git a/docs/unidr-synchronous-runner.md b/docs/unidr-synchronous-runner.md
+new file mode 100644
+index 0000000..508d06b
+--- /dev/null
++++ b/docs/unidr-synchronous-runner.md
+@@ -0,0 +1,38 @@
++# Central synchronous PPO runner
++
++`uni_rl.algos.synchronous_runner.SynchronousPPORunner` uses the native RSL-RL
++constructor, adaptive PPO optimizer, and logger. Its injected `CentralVecEnv`
++contains four ordered source slices. Every iteration collects 24 complete
++control steps, prepares GAE within each source, normalizes advantages globally,
++and performs five epochs with four minibatches each. Runtime audits require all
++samples in each epoch and exactly 20 Adam steps per iteration.
++
++Pass a nonempty `manifest_digest` describing the task configuration and assets.
++The runner also records the complete training configuration and ordered source
++topology. `learn(n)` runs `n` additional iterations and closes environment
++services and the logging writer on success or failure. `latest_window` retains
++the latest raw source trajectories and recovery generation in memory. Optional
++`init_at_random_ep_len=True` preserves native initial episode staggering. JSONL metrics contain iteration,
++policy/normalizer versions, sample counts, losses, learning rate, timing, source
++rewards, terminal counts, and rolling source episode statistics; native
++TensorBoard curves provide the global training metrics and source curves.
++
++With a log directory, checkpoints are written atomically at iteration indices
++0, 500, 1000, ... and at the final iteration (9999 for a 10,000-iteration run).
++They retain native actor/critic/optimizer keys for inference consumers, plus
++completed-iteration counters, adaptive learning rate, empirical normalization
++statistics with exact integer counts, Python/NumPy/Torch/CUDA RNG states,
++rolling logger metrics, and the configuration/assets/topology contract.
++Partial windows and partial optimizer updates cannot be checkpointed.
++
++Resume with a fresh runner and `load(path)`, then `learn(remaining_iterations)`.
++Resume requires an exact contract match and coherent counters, including all
++Adam parameter steps and empirical normalizer sample counts. It starts at
++the saved iteration plus one, resets every environment, clears incomplete
++episode accounting, and increments the recovery generation. Physics state is
++not restored, so resumed trajectories are not identical to uninterrupted
++training. No rollout archive is written by default.
++
++This implements [ADR-0002](adr/0002-central-synchronous-ppo.md). Fake-source
++lifecycle tests exercise the real native PPO on both RSL-RL 5.0.1 and 5.5;
++they make no robot-backend training support claim.
+diff --git a/examples/configs/unidr_fake_ppo.yaml b/examples/configs/unidr_fake_ppo.yaml
+new file mode 100644
+index 0000000..35bbb77
+--- /dev/null
++++ b/examples/configs/unidr_fake_ppo.yaml
+@@ -0,0 +1,13 @@
++defaults:
++  - override hydra/job_logging: disabled
++  - _self_
++seed: 1
++num_envs: 2
++steps: [24, 24, 24, 24]
++normalize: false
++hydra:
++  run:
++    dir: .
++  output_subdir: null
++  job:
++    chdir: false
+diff --git a/examples/report_synchronous.py b/examples/report_synchronous.py
+new file mode 100644
+index 0000000..5e0e44b
+--- /dev/null
++++ b/examples/report_synchronous.py
+@@ -0,0 +1,23 @@
++"""Audit completed synchronous PPO artifacts and render their learning curves."""
++
++import argparse
++import json
++
++from uni_rl.logging.synchronous_report import report
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("run_dir")
++    parser.add_argument("output_dir")
++    parser.add_argument("--expected-iterations", type=int, default=10000)
++    parser.add_argument("--num-envs", type=int, default=1024, help="Environments per source")
++    parser.add_argument(
++        "--final-checkpoint", help="Explicit completed prefix; original run intent is preserved"
++    )
++    args = vars(parser.parse_args())
++    print(json.dumps(report(**args), indent=2))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/examples/unidr_fake.py b/examples/unidr_fake.py
+new file mode 100644
+index 0000000..df38911
+--- /dev/null
++++ b/examples/unidr_fake.py
+@@ -0,0 +1,136 @@
++"""Deterministic fixtures for the C1 example; these are not robot simulators."""
++
++from __future__ import annotations
++
++from contextlib import ExitStack
++from dataclasses import dataclass, field
++from types import SimpleNamespace
++from typing import Any
++
++import numpy as np
++import torch
++from rsl_rl.models import MLPModel
++from rsl_rl.storage import RolloutStorage
++from tensordict import TensorDict
++
++from uni_rl.algos.multi_source_ppo import SourceRollout, WindowSpec, collect_source
++from uni_rl.algos.rsl_rl_ppo import FinalObservationAwarePPO
++
++SOURCE_IDS = ("fake_isaacsim", "fake_isaacgym", "fake_genesis", "fake_motrix")
++
++
++@dataclass
++class FakeState:
++    obs: dict[str, np.ndarray]
++    reward: np.ndarray
++    terminated: np.ndarray
++    truncated: np.ndarray
++    final_observation: dict[str, np.ndarray] | None = None
++    info: dict[str, Any] = field(default_factory=dict)
++
++
++class FakeSource:
++    obs_groups_spec = {"obs": 4, "critic": 5}
++    action_space = SimpleNamespace(shape=(2,))
++    observation_space = SimpleNamespace(shape=(4,))
++    cfg = SimpleNamespace(max_episode_seconds=1.0, ctrl_dt=0.02)
++    play_capabilities = SimpleNamespace(supports_physics_state_playback=False)
++
++    def __init__(self, source: int, num_envs: int):
++        self.source, self.num_envs = source, num_envs
++        self.position = np.zeros((num_envs, 2), dtype=np.float32)
++        self.age = np.zeros(num_envs, dtype=np.int64)
++        self.tick = 0
++        self.closed = False
++        self.state: FakeState | None = None
++
++    def _obs(self) -> dict[str, np.ndarray]:
++        obs = np.column_stack(
++            (np.full(self.num_envs, self.source), np.arange(self.num_envs), self.position)
++        ).astype(np.float32)
++        return {
++            "obs": obs,
++            "critic": np.column_stack((obs, np.full(self.num_envs, self.tick))).astype(np.float32),
++        }
++
++    def init_state(self) -> FakeState:
++        self.state = FakeState(
++            self._obs(),
++            np.zeros(self.num_envs, np.float32),
++            self.age.astype(bool),
++            self.age.astype(bool),
++        )
++        return self.state
++
++    def step(self, actions: np.ndarray) -> FakeState:
++        if self.closed:
++            raise RuntimeError("closed fake source")
++        self.position += 0.05 * np.tanh(actions) + 0.01 * (self.source + 1)
++        self.age += 1
++        self.tick += 1
++        reward = (1 - np.square(self.position - 0.3).sum(axis=1)).astype(np.float32)
++        terminated = (self.age >= 5 + self.source) & (np.arange(self.num_envs) % 2 == 0)
++        truncated = self.age >= 7 + self.source
++        final = self._obs()
++        done = terminated | truncated
++        self.position[done], self.age[done] = 0, 0
++        self.state = FakeState(self._obs(), reward, terminated, truncated, final)
++        return self.state
++
++    def reset(self, env_indices: np.ndarray) -> tuple[dict[str, np.ndarray], dict]:
++        self.position[env_indices], self.age[env_indices] = 0, 0
++        return {key: value[env_indices] for key, value in self._obs().items()}, {}
++
++    def set_nan_guard(self, guard: Any) -> None:
++        del guard
++
++    def close(self) -> None:
++        self.closed = True
++
++
++def make_ppo(seed: int = 1, normalize: bool = False) -> FinalObservationAwarePPO:
++    torch.manual_seed(seed)
++    obs = TensorDict({"obs": torch.zeros(1, 4), "critic": torch.zeros(1, 5)}, [1])
++    groups = {"actor": ["obs"], "critic": ["critic"]}
++    actor = MLPModel(
++        obs,
++        groups,
++        "actor",
++        2,
++        hidden_dims=[16, 16],
++        obs_normalization=normalize,
++        distribution_cfg={"class_name": "rsl_rl.modules:GaussianDistribution", "init_std": 0.5},
++    )
++    critic = MLPModel(obs, groups, "critic", 1, hidden_dims=[16, 16], obs_normalization=normalize)
++    if normalize:
++        calibration = TensorDict(
++            {
++                key: torch.stack((torch.full((dim,), 0.25), torch.full((dim,), 1.5)))
++                for key, dim in FakeSource.obs_groups_spec.items()
++            },
++            [2],
++        )
++        for model in (actor, critic):
++            model.update_normalization(calibration)
++    return FinalObservationAwarePPO(
++        actor.eval(), critic.eval(), RolloutStorage("rl", 1, 1, obs, [2]), schedule="fixed"
++    )
++
++
++def fake_window(
++    ppo: FinalObservationAwarePPO, steps=(24, 24, 24, 24), num_envs: int = 2
++) -> tuple[WindowSpec, list[SourceRollout]]:
++    if len(steps) != 4 or num_envs <= 0:
++        raise ValueError("four sources and positive pool capacity required")
++    spec = WindowSpec(0, 0, 0, dict(zip(SOURCE_IDS, (num_envs * t for t in steps))), num_envs * 96)
++    with ExitStack() as stack:
++        envs = []
++        for index in range(4):
++            env = FakeSource(index, num_envs)
++            stack.callback(env.close)
++            envs.append(env)
++        sources = [
++            collect_source(ppo, env, spec, name, horizon)
++            for env, name, horizon in zip(envs, SOURCE_IDS, steps)
++        ]
++    return spec, sources
+diff --git a/examples/unidr_fake_ppo.py b/examples/unidr_fake_ppo.py
+new file mode 100644
+index 0000000..4f4da09
+--- /dev/null
++++ b/examples/unidr_fake_ppo.py
+@@ -0,0 +1,46 @@
++"""Run the C1 fake-data smoke using the runtime-owned rollout bridge."""
++
++import json
++
++import hydra
++import torch
++from omegaconf import DictConfig
++from torch.nn.utils import parameters_to_vector
++from unidr_fake import fake_window, make_ppo
++
++from uni_rl.algos.multi_source_ppo import prepare_ppo_window
++
++
++@hydra.main(version_base=None, config_path="configs", config_name="unidr_fake_ppo")
++def main(cfg: DictConfig) -> None:
++    torch.set_num_threads(1)
++    ppo = make_ppo(cfg.seed, cfg.normalize)
++    models = (ppo.actor, ppo.critic)
++    before = [parameters_to_vector(model.parameters()).detach().clone() for model in models]
++    spec, sources = fake_window(ppo, cfg.steps, cfg.num_envs)
++    ppo.storage = prepare_ppo_window(ppo, sources, spec)
++    losses = ppo.update()
++    changed = [
++        not torch.equal(old, parameters_to_vector(model.parameters()))
++        for old, model in zip(before, models)
++    ]
++    assert all(changed), "actor and critic must both update"
++    print(
++        json.dumps(
++            {
++                "evidence": "fake sources / real PPO",
++                "source_counts": dict(spec.quotas),
++                "transitions": spec.transitions,
++                "actor_critic_changed": changed,
++                "optimizer_steps": sorted(
++                    {int(state["step"]) for state in ppo.optimizer.state.values()}
++                ),
++                "losses": losses,
++            },
++            sort_keys=True,
++        )
++    )
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/pyproject.toml b/pyproject.toml
+index e6d233a..1b22587 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -92,6 +92,7 @@ reportMissingModuleSource = "none"
+ 
+ [tool.pytest.ini_options]
+ testpaths = ["tests"]
++pythonpath = ["."]
+ markers = [
+     "slow: long-running training or smoke tests",
+ ]
+diff --git a/src/uni_rl/algos/multi_source_ppo.py b/src/uni_rl/algos/multi_source_ppo.py
+new file mode 100644
+index 0000000..ae15c32
+--- /dev/null
++++ b/src/uni_rl/algos/multi_source_ppo.py
+@@ -0,0 +1,293 @@
++"""Synchronous, in-memory PPO windows; raw trajectories survive batch preparation."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping, Sequence
++from copy import copy
++from dataclasses import dataclass
++from typing import cast
++
++import torch
++from rsl_rl.storage import RolloutStorage
++from tensordict import TensorDict
++
++from uni_rl.algos.rsl_rl_ppo import FinalObservationAwarePPO
++from uni_rl.env_contract import EnvProtocol
++
++
++@dataclass(frozen=True)
++class WindowSpec:
++    window_id: int
++    policy_version: int
++    normalizer_version: int
++    quotas: Mapping[str, int]  # Transitions, independently of resident pool capacity.
++    transitions: int
++
++    @property
++    def stamp(self) -> tuple[int, int, int]:
++        return self.window_id, self.policy_version, self.normalizer_version
++
++
++@dataclass(frozen=True)
++class SourceRollout:
++    """One contiguous vector segment. Episode IDs are local to each segment/env."""
++
++    source_id: str
++    segment_id: int
++    stamp: tuple[int, int, int]
++    raw: RolloutStorage
++    env_ids: torch.Tensor
++    episode_ids: torch.Tensor
++    terminated: torch.Tensor
++    truncated: torch.Tensor
++    final_observations: TensorDict | None  # Dense [T,N]; only done rows are meaningful.
++    last_observations: TensorDict
++    bootstrap_values: torch.Tensor  # V(next pre-reset), zero for true terminations.
++
++
++def _require(ok: bool, message: str) -> None:
++    if not ok:
++        raise ValueError(message)
++
++
++def _check_ppo(ppo: FinalObservationAwarePPO) -> None:
++    _require(not (ppo.actor.is_recurrent or ppo.critic.is_recurrent), "feedforward PPO only")
++    _require(not (ppo.rnd or ppo.symmetry or ppo.is_multi_gpu), "plain single-learner PPO only")
++    _require(not ppo.enable_compile, "compiled PPO is outside this window contract")
++    _require(not getattr(ppo, "use_mixed_precision", False), "float32 PPO only")
++    _require(not ppo.normalize_advantage_per_mini_batch, "global advantage normalization required")
++    _require(ppo.num_learning_epochs == 5 and ppo.num_mini_batches == 4, "PPO budget must be 5x4")
++    _require(ppo.schedule == "fixed", "fixed PPO schedule required")
++    for model in (ppo.actor, ppo.critic):
++        _require(
++            not model.training and not model.obs_normalizer.training,
++            "policy/normalizer must be frozen in eval mode",
++        )
++
++
++def _tensor(data, shape, dtype, device) -> torch.Tensor:
++    value = torch.as_tensor(data, device=device)
++    _require(value.shape == shape and value.dtype == dtype, "invalid tensor shape or dtype")
++    _require(bool(torch.isfinite(value).all()), "non-finite rollout")
++    return value.clone()
++
++
++def _obs(data: Mapping, num_envs: int, ppo: FinalObservationAwarePPO) -> TensorDict:
++    schema = ppo.storage.observations
++    _require(set(data) == set(schema.keys()), "observation groups mismatch")
++    return TensorDict(
++        {
++            key: _tensor(value, (num_envs, *schema[key].shape[2:]), torch.float32, ppo.device)
++            for key, value in data.items()
++        },
++        batch_size=[num_envs],
++        device=ppo.device,
++    )
++
++
++@torch.no_grad()
++def collect_source(
++    ppo: FinalObservationAwarePPO,
++    env: EnvProtocol,
++    spec: WindowSpec,
++    source_id: str,
++    steps: int,
++    *,
++    segment_id: int = 0,
++) -> SourceRollout:
++    """Collect a full-pool segment. The caller owns and closes the injected env.
++
++    No optimizer or normalizer update runs here. Version stamps are supplied by
++    the caller; snapshot publication and interprocess validation are not C1.
++    """
++    _check_ppo(ppo)
++    _require(steps > 0 and env.num_envs > 0, "positive segment dimensions required")
++    state = env.state if env.state is not None else env.init_state()
++    obs = _obs(state.obs, env.num_envs, ppo)
++    raw = RolloutStorage("rl", env.num_envs, steps, obs, env.action_space.shape, ppo.device)
++    flags = torch.zeros(steps, env.num_envs, dtype=torch.bool, device=ppo.device)
++    terminated, truncated = flags.clone(), flags.clone()
++    episodes = torch.zeros_like(flags, dtype=torch.int64)
++    episode = torch.zeros(env.num_envs, dtype=torch.int64, device=ppo.device)
++    final = raw.observations.clone()
++    bootstrap = torch.zeros_like(raw.values)
++    for step in range(steps):
++        transition = RolloutStorage.Transition()
++        transition.observations = obs.clone()
++        actions = ppo.actor(obs, stochastic_output=True).clone()
++        transition.actions = actions
++        transition.values = ppo.critic(obs).clone()
++        transition.actions_log_prob = ppo.actor.get_output_log_prob(actions).clone()
++        transition.distribution_params = tuple(
++            p.clone() for p in ppo.actor.output_distribution_params
++        )
++        state = env.step(actions.cpu().numpy().copy())
++        obs = _obs(state.obs, env.num_envs, ppo)
++        terminated[step] = _tensor(state.terminated, (env.num_envs,), torch.bool, ppo.device)
++        truncated[step] = _tensor(state.truncated, (env.num_envs,), torch.bool, ppo.device)
++        done = terminated[step] | truncated[step]
++        next_obs = obs.clone()
++        if done.any():
++            if state.final_observation is None:
++                raise ValueError("done transition missing final observation")
++            terminal_obs = _obs(state.final_observation, env.num_envs, ppo)
++            final[step].copy_(terminal_obs)
++            next_obs[done] = terminal_obs[done]
++        bootstrap[step] = ppo.critic(next_obs)
++        bootstrap[step, terminated[step]] = 0
++        episodes[step] = episode
++        episode = episode + done.long()
++        transition.rewards = _tensor(state.reward, (env.num_envs,), torch.float32, ppo.device)
++        transition.dones = done
++        raw.add_transition(transition)
++    return SourceRollout(
++        source_id=source_id,
++        segment_id=segment_id,
++        stamp=spec.stamp,
++        raw=raw,
++        env_ids=torch.arange(env.num_envs, device=ppo.device),
++        episode_ids=episodes,
++        terminated=terminated,
++        truncated=truncated,
++        final_observations=final,
++        last_observations=obs,
++        bootstrap_values=bootstrap,
++    )
++
++
++def _validate(source: SourceRollout, spec: WindowSpec, ppo: FinalObservationAwarePPO) -> None:
++    st = source.raw
++    t, n = st.num_transitions_per_env, st.num_envs
++    _require(
++        source.source_id in spec.quotas and source.segment_id >= 0,
++        "unknown source or invalid segment",
++    )
++    _require(source.stamp == spec.stamp, "window/policy/normalizer version mismatch")
++    _require(t > 0 and n > 0 and st.step == t, "incomplete source rollout")
++    _require(
++        source.env_ids.shape == (n,) and source.env_ids.dtype == torch.int64, "invalid env IDs"
++    )
++    _require(
++        bool((source.env_ids >= 0).all()) and source.env_ids.unique().numel() == n,
++        "duplicate/invalid env IDs",
++    )
++    _require(
++        source.episode_ids.shape == (t, n) and source.episode_ids.dtype == torch.int64,
++        "invalid episode IDs",
++    )
++    _require(bool((source.episode_ids >= 0).all()), "invalid episode IDs")
++    for flag in (source.terminated, source.truncated):
++        _require(flag.shape == (t, n) and flag.dtype == torch.bool, "invalid termination flags")
++    done = source.terminated | source.truncated
++    _require(torch.equal(st.dones, done.unsqueeze(-1).to(st.dones.dtype)), "done flags disagree")
++    _require(
++        torch.equal(source.episode_ids[1:] - source.episode_ids[:-1], done[:-1].long()),
++        "episode continuity mismatch",
++    )
++    expected = {key: value.shape[2:] for key, value in ppo.storage.observations.items()}
++    groups = [(st.observations, (t, n)), (source.last_observations, (n,))]
++    if source.final_observations is not None:
++        groups.append((source.final_observations, (t, n)))
++    _require(
++        not bool(done.any()) or source.final_observations is not None, "missing final observation"
++    )
++    tensors = []
++    for observations, batch_shape in groups:
++        _require(set(observations.keys()) == set(expected), "observation groups mismatch")
++        for key, shape in expected.items():
++            value = observations[key]
++            _require(tuple(value.shape) == (*batch_shape, *shape), "observation shape mismatch")
++            tensors.append(value)
++    for value in (st.rewards, st.values, st.actions_log_prob, source.bootstrap_values):
++        _require(value.shape == (t, n, 1), "scalar field shape mismatch")
++        tensors.append(value)
++    _require(st.actions.shape == (t, n, *ppo.storage.actions_shape), "action shape mismatch")
++    _require(
++        st.distribution_params is not None and len(st.distribution_params) == 2,
++        "Gaussian distribution parameters required",
++    )
++    assert st.distribution_params is not None
++    for parameter in st.distribution_params:
++        _require(parameter.shape == st.actions.shape, "distribution shape mismatch")
++    _require(bool((st.distribution_params[1] > 0).all()), "distribution std must be positive")
++    tensors.extend((st.actions, *st.distribution_params))
++    for value in tensors:
++        _require(value.dtype == torch.float32, "float32 rollout required")
++        _require(
++            value.device == st.values.device == torch.device(ppo.device), "rollout device mismatch"
++        )
++        _require(bool(torch.isfinite(value).all()), "non-finite rollout")
++    _require(
++        bool((source.bootstrap_values[source.terminated] == 0).all()),
++        "true termination must not bootstrap",
++    )
++
++
++@torch.no_grad()
++def prepare_ppo_window(
++    ppo: FinalObservationAwarePPO, sources: Sequence[SourceRollout], spec: WindowSpec
++) -> RolloutStorage:
++    """Validate the complete budget, run existing GAE per segment, then merge.
++
++    The returned [1,B] storage is an optimization view, never a trajectory.
++    The caller retains sources and assigns this storage to the single learner.
++    """
++    _check_ppo(ppo)
++    return _prepare_ppo_window(ppo, sources, spec)
++
++
++@torch.no_grad()
++def _prepare_ppo_window(
++    ppo: FinalObservationAwarePPO, sources: Sequence[SourceRollout], spec: WindowSpec
++) -> RolloutStorage:
++    """Shared validated GAE/batch preparation after the caller checks its protocol."""
++    _require(all(type(v) is int and v >= 0 for v in spec.stamp), "invalid window versions")
++    _require(
++        bool(spec.quotas) and all(type(v) is int and v > 0 for v in spec.quotas.values()),
++        "invalid quotas",
++    )
++    _require(
++        spec.transitions == sum(spec.quotas.values()) and spec.transitions % 4 == 0,
++        "budget must equal quotas and be divisible by 4",
++    )
++    counts = dict.fromkeys(spec.quotas, 0)
++    seen: set[tuple[str, int]] = set()
++    for source in sources:
++        _validate(source, spec, ppo)
++        key = source.source_id, source.segment_id
++        _require(key not in seen, "duplicate source segment")
++        seen.add(key)
++        counts[source.source_id] += source.raw.num_envs * source.raw.num_transitions_per_env
++    _require(counts == dict(spec.quotas), "source budget mismatch")
++    original = ppo.storage
++    prepared = []
++    try:
++        ppo.normalize_advantage_per_mini_batch = True  # Defer normalization until after merging.
++        for source in sources:
++            work = copy(source.raw)
++            timeout = (source.truncated & ~source.terminated).unsqueeze(-1)
++            work.rewards = source.raw.rewards + ppo.gamma * source.bootstrap_values * timeout
++            work.returns = torch.empty_like(source.raw.values)
++            ppo.storage = work
++            ppo.compute_returns(source.last_observations)
++            prepared.append(work)
++    finally:
++        ppo.storage = original
++        ppo.normalize_advantage_per_mini_batch = False
++    observations = cast(TensorDict, torch.cat([st.observations.flatten(0, 1) for st in prepared]))
++    merged = RolloutStorage(
++        "rl", spec.transitions, 1, observations, original.actions_shape, ppo.device
++    )
++    merged.observations[0].copy_(observations)
++    for name in ("actions", "rewards", "dones", "values", "actions_log_prob", "returns"):
++        getattr(merged, name)[0].copy_(
++            torch.cat([getattr(st, name).flatten(0, 1) for st in prepared])
++        )
++    merged.distribution_params = tuple(
++        torch.cat([st.distribution_params[i].flatten(0, 1) for st in prepared]).unsqueeze(0)
++        for i in range(2)
++    )
++    advantage = merged.returns - merged.values
++    merged.advantages.copy_((advantage - advantage.mean()) / (advantage.std() + 1e-8))
++    merged.step = 1
++    return merged
+diff --git a/src/uni_rl/algos/rsl_rl.py b/src/uni_rl/algos/rsl_rl.py
+index afdcb5e..94b9648 100644
+--- a/src/uni_rl/algos/rsl_rl.py
++++ b/src/uni_rl/algos/rsl_rl.py
+@@ -288,7 +288,11 @@ class RslRlVecEnvWrapper:
+         infos: dict[str, torch.Tensor | TensorDict | dict[str, Any]] = {}
+         done_idx = torch.nonzero(dones).flatten()
+         if len(done_idx) > 0:
+-            infos["time_outs"] = to_torch(state.truncated, self.device).bool()
++            # Failure can coincide with the horizon; only a pure timeout bootstraps.
++            infos["time_outs"] = (
++                to_torch(state.truncated, self.device).bool()
++                & ~to_torch(state.terminated, self.device).bool()
++            )
+ 
+             final_observation = self._resolve_final_observation(state)
+             terminal_contract = resolve_terminal_observation_contract(
+diff --git a/src/uni_rl/algos/synchronous_ppo.py b/src/uni_rl/algos/synchronous_ppo.py
+new file mode 100644
+index 0000000..ab9eeff
+--- /dev/null
++++ b/src/uni_rl/algos/synchronous_ppo.py
+@@ -0,0 +1,276 @@
++"""Central inference with native per-step normalization and source-local GAE."""
++
++from __future__ import annotations
++
++from collections.abc import Callable, Mapping
++from copy import copy
++from dataclasses import dataclass
++from typing import Any, cast
++
++import torch
++from rsl_rl.storage import RolloutStorage
++from tensordict import TensorDict
++
++from uni_rl.algos.multi_source_ppo import (
++    SourceRollout,
++    WindowSpec,
++    _prepare_ppo_window,
++    _require,
++)
++from uni_rl.algos.rsl_rl import RslRlVecEnvWrapper
++from uni_rl.algos.rsl_rl_ppo import FinalObservationAwarePPO
++
++
++class CentralVecEnv(RslRlVecEnvWrapper):
++    """Retain all observation groups and give true termination precedence."""
++
++    def _obs_to_tensordict(self, obs: dict[str, Any], info=None) -> TensorDict:
++        result = super()._obs_to_tensordict(obs, info)
++        for key, value in obs.items():
++            tensor = torch.as_tensor(value, device=self.device)
++            if key in result:
++                _require(torch.equal(result[key], tensor), "reserved observation group collision")
++            else:
++                result[key] = tensor
++        return result
++
++    def step(self, actions):
++        obs, rewards, dones, extras = super().step(actions)
++        state = self.env.state
++        logs = {}
++        for source, info in state.info.get("source_logs", {}).items():
++            for key, value in info.get("log", {}).items():
++                logs[f"{source}/{key}"] = value
++        if logs:
++            extras["log"] = logs
++        return obs, rewards, dones, extras
++
++
++def _check_central_ppo(ppo: FinalObservationAwarePPO) -> None:
++    _require(not (ppo.actor.is_recurrent or ppo.critic.is_recurrent), "feedforward PPO only")
++    _require(not (ppo.rnd or ppo.symmetry or ppo.is_multi_gpu), "one plain PPO learner required")
++    _require(not ppo.enable_compile, "central PPO requires the native uncompiled update")
++    _require(not getattr(ppo, "use_mixed_precision", False), "float32 PPO required")
++    _require(not ppo.normalize_advantage_per_mini_batch, "global advantage normalization required")
++    _require(ppo.num_learning_epochs == 5 and ppo.num_mini_batches == 4, "PPO budget must be 5x4")
++    _require(ppo.schedule in {"adaptive", "fixed"}, "unsupported PPO schedule")
++    for model in (ppo.actor, ppo.critic):
++        norm = model.obs_normalizer
++        _require(
++            hasattr(norm, "count") and norm.count.dtype == torch.int64,
++            "int64 empirical count required",
++        )
++        _require(norm.until is None, "normalizer must remain enabled throughout training")
++
++
++def _revision(ppo: FinalObservationAwarePPO) -> tuple[tuple[int, int], ...]:
++    return tuple(
++        (id(value), value._version)
++        for model in (ppo.actor, ppo.critic)
++        for value in (*model.parameters(), *model.buffers())
++    )
++
++
++@dataclass(frozen=True)
++class CentralWindow:
++    spec: WindowSpec
++    sources: tuple[SourceRollout, ...]
++    normalizer_versions: torch.Tensor  # [T], pre-act version; bootstrap uses version + 1.
++    generation: int = 0
++    learner_revision: tuple[tuple[int, int], ...] = ()
++
++    def prepare(self, ppo: FinalObservationAwarePPO) -> RolloutStorage:
++        _check_central_ppo(ppo)
++        _require(self.learner_revision == _revision(ppo), "learner state changed after collection")
++        versions = self.normalizer_versions
++        steps = self.sources[0].raw.num_transitions_per_env
++        _require(
++            versions.dtype == torch.int64
++            and torch.equal(
++                versions, torch.arange(steps, device=versions.device) + self.spec.normalizer_version
++            ),
++            "nonconsecutive normalizer versions",
++        )
++        _require(
++            all(source.raw.num_transitions_per_env == steps for source in self.sources),
++            "all sources must participate in every control step",
++        )
++        ppo.eval_mode()  # Explicitly freeze statistics for bootstrap/optimization.
++        return _prepare_ppo_window(ppo, self.sources, self.spec)
++
++
++class CentralCollector:
++    """Collect one complete window; any error poisons this collector and closes envs."""
++
++    def __init__(
++        self,
++        ppo: FinalObservationAwarePPO,
++        env: CentralVecEnv,
++        source_slices: Mapping[str, slice],
++    ) -> None:
++        _check_central_ppo(ppo)
++        self.ppo, self.env = ppo, env
++        self.source_slices = dict(source_slices)
++        cursor = 0
++        for part in self.source_slices.values():
++            _require(
++                part.start == cursor and part.stop > cursor and part.step in (None, 1),
++                "invalid source slices",
++            )
++            cursor = part.stop
++        _require(
++            cursor == env.num_envs and len(source_slices) == 4,
++            "four complete source pools required",
++        )
++        self.steps = ppo.storage.num_transitions_per_env
++        self.episode_ids = torch.zeros(env.num_envs, dtype=torch.int64, device=ppo.device)
++        self.failed = False
++        self.generation = 0
++        self.next_stamp: tuple[int, int, int] | None = None
++
++    @torch.no_grad()
++    def collect(
++        self,
++        window_id: int,
++        policy_version: int,
++        normalizer_version: int,
++        on_step: Callable[..., None] | None = None,
++    ) -> CentralWindow:
++        _require(not self.failed, "failed collector must be recreated from a checkpoint")
++        stamp = (window_id, policy_version, normalizer_version)
++        _require(all(type(v) is int and v >= 0 for v in stamp), "invalid window versions")
++        _require(
++            self.next_stamp is None or stamp == self.next_stamp, "stale or skipped window version"
++        )
++        try:
++            window = self._collect(stamp, on_step)
++        except BaseException:
++            self.failed = True
++            self.env.close()
++            raise
++        self.next_stamp = (window_id + 1, policy_version + 1, normalizer_version + self.steps)
++        return window
++
++    def _collect(
++        self, stamp: tuple[int, int, int], on_step: Callable[..., None] | None
++    ) -> CentralWindow:
++        ppo, env = self.ppo, self.env
++        _check_central_ppo(ppo)
++        ppo.train_mode()
++        obs = env.get_observations().to(ppo.device)
++        n, t = env.num_envs, self.steps
++        storage = RolloutStorage("rl", n, t, obs, ppo.storage.actions_shape, ppo.device)
++        ppo.storage = storage
++        raw_rewards = torch.empty_like(storage.rewards)
++        terminated = torch.empty((t, n), dtype=torch.bool, device=ppo.device)
++        truncated = torch.empty_like(terminated)
++        episodes = torch.empty((t, n), dtype=torch.int64, device=ppo.device)
++        bootstrap = torch.zeros_like(storage.values)
++        final = TensorDict(
++            {key: torch.zeros_like(value) for key, value in storage.observations.items()}, [t, n]
++        )
++        params = tuple(ppo.actor.parameters()) + tuple(ppo.critic.parameters())
++        weight_versions = [p._version for p in params]
++        for step in range(t):
++            for value in obs.values():
++                _require(
++                    value.dtype == torch.float32 and bool(torch.isfinite(value).all()),
++                    "non-finite or non-float32 observation",
++                )
++            episodes[step].copy_(self.episode_ids)
++            actions = ppo.act(
++                obs.clone()
++            )  # EnvProtocol permits reuse of numpy observation buffers.
++            if step:
++                ongoing = ~(terminated[step - 1] | truncated[step - 1])
++                assert ppo.transition.values is not None
++                bootstrap[step - 1, ongoing] = ppo.transition.values[ongoing]
++            obs, rewards, dones, extras = env.step(actions)
++            _require(
++                set(obs.keys()) == set(storage.observations.keys()), "observation groups mismatch"
++            )
++            for key, value in obs.items():
++                _require(
++                    value.shape == storage.observations[key].shape[1:]
++                    and value.dtype == torch.float32
++                    and bool(torch.isfinite(value).all()),
++                    "invalid post-step observation",
++                )
++            state = env.env.state
++            terminated[step].copy_(torch.as_tensor(state.terminated, device=ppo.device))
++            truncated[step].copy_(torch.as_tensor(state.truncated, device=ppo.device))
++            raw_rewards[step, :, 0].copy_(rewards)
++            _require(bool(torch.isfinite(rewards).all()), "non-finite reward")
++            if bool(dones.any()):
++                _require(state.final_observation is not None, "missing final observation")
++                cast(TensorDict, final[step]).copy_(env._obs_to_tensordict(state.final_observation))
++            counts = [
++                cast(torch.Tensor, model.obs_normalizer.count).clone()
++                for model in (ppo.actor, ppo.critic)
++            ]
++            ppo.process_env_step(obs, rewards, dones, extras)
++            for model, count in zip((ppo.actor, ppo.critic), counts):
++                _require(
++                    bool(model.obs_normalizer.count == count + n),
++                    "normalizer updated other than once",
++                )
++                _require(
++                    all(
++                        bool(torch.isfinite(value).all())
++                        for value in model.obs_normalizer.buffers()
++                    ),
++                    "non-finite normalizer statistics",
++                )
++            timeout = truncated[step] & ~terminated[step]
++            if bool(timeout.any()):
++                bootstrap[step, timeout] = ppo.critic(final[step])[timeout].detach()
++            self.episode_ids += dones.long()
++            if on_step is not None:
++                on_step(obs, rewards, dones, extras)
++        tail = ppo.critic(obs).detach()
++        ongoing = ~(terminated[-1] | truncated[-1])
++        bootstrap[-1, ongoing] = tail[ongoing]
++        _require(
++            weight_versions == [p._version for p in params], "weights changed during collection"
++        )
++        quotas = {name: t * (part.stop - part.start) for name, part in self.source_slices.items()}
++        spec = WindowSpec(*stamp, quotas, t * n)
++        sources = []
++        for name, part in self.source_slices.items():
++            raw = copy(storage)
++            raw.num_envs = part.stop - part.start
++            for field in (
++                "observations",
++                "actions",
++                "dones",
++                "values",
++                "actions_log_prob",
++                "returns",
++                "advantages",
++            ):
++                setattr(raw, field, getattr(storage, field)[:, part])
++            raw.rewards = raw_rewards[:, part]
++            assert storage.distribution_params is not None
++            raw.distribution_params = tuple(value[:, part] for value in storage.distribution_params)
++            sources.append(
++                SourceRollout(
++                    name,
++                    stamp[0],
++                    stamp,
++                    raw,
++                    torch.arange(raw.num_envs, device=ppo.device),
++                    episodes[:, part],
++                    terminated[:, part],
++                    truncated[:, part],
++                    cast(TensorDict, final[:, part]),
++                    obs[part].clone(),
++                    bootstrap[:, part],
++                )
++            )
++        return CentralWindow(
++            spec,
++            tuple(sources),
++            torch.arange(t, device=ppo.device) + stamp[2],
++            self.generation,
++            _revision(ppo),
++        )
+diff --git a/src/uni_rl/algos/synchronous_runner.py b/src/uni_rl/algos/synchronous_runner.py
+new file mode 100644
+index 0000000..3b7819c
+--- /dev/null
++++ b/src/uni_rl/algos/synchronous_runner.py
+@@ -0,0 +1,381 @@
++"""Central synchronous PPO lifecycle; checkpoint only completed native updates."""
++
++from __future__ import annotations
++
++import json
++import math
++import os
++import random
++import tempfile
++import time
++from collections import deque
++from copy import deepcopy
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++import torch
++from rsl_rl.runners import OnPolicyRunner
++
++from uni_rl.algos.synchronous_ppo import CentralCollector
++
++
++class SynchronousPPORunner(OnPolicyRunner):
++    """Run 24-step windows and native adaptive PPO's five epochs/four minibatches.
++
++    ``manifest_digest`` identifies the injected task/config/assets. Resume restores
++    the learner, then resets the environment into a new recovery generation.
++    """
++
++    alg: Any
++    env: Any
++    logger: Any
++
++    def __init__(
++        self,
++        env: Any,
++        train_cfg: dict,
++        log_dir: str | None = None,
++        device: str = "cpu",
++        *,
++        manifest_digest: str,
++    ) -> None:
++        self._closed = False
++        self._checkpoint_ready = False
++        self._writer_started = False
++        try:
++            if not manifest_digest or int(os.getenv("WORLD_SIZE", "1")) != 1:
++                raise ValueError("a manifest digest and one central learner are required")
++            if train_cfg["num_steps_per_env"] != 24 or train_cfg["save_interval"] != 500:
++                raise ValueError("synchronous budget requires 24 steps and save_interval=500")
++            self.source_slices = dict(env.env.source_slices)
++            self.contract = {
++                "manifest_digest": manifest_digest,
++                "train_cfg": deepcopy(train_cfg),
++                "sources": [(key, sl.start, sl.stop) for key, sl in self.source_slices.items()],
++                "num_envs": env.num_envs,
++            }
++            super().__init__(env, deepcopy(train_cfg), log_dir, device)
++            self.logger.writer = None
++            if self.alg.schedule != "adaptive" or self.alg.desired_kl is None:
++                raise ValueError("native adaptive PPO with desired_kl is required")
++            self.collector = CentralCollector(self.alg, env, self.source_slices)
++            self.next_iteration = self.policy_version = self.normalizer_version = 0
++            self.optimizer_steps = self.total_transitions = self.generation = 0
++            self.current_learning_iteration = -1
++            self.latest_window: Any = None
++            self.last_metrics: dict[str, Any] = {}
++            self._returns: dict[str, deque[float]] = {
++                key: deque(maxlen=100) for key in self.source_slices
++            }
++            self._lengths: dict[str, deque[float]] = {
++                key: deque(maxlen=100) for key in self.source_slices
++            }
++            self._episode_rewards = torch.zeros(env.num_envs, device=device)
++            self._episode_lengths = torch.zeros(env.num_envs, device=device)
++        except BaseException:
++            env.close()
++            raise
++
++    def _on_step(self, obs: Any, rewards: torch.Tensor, dones: torch.Tensor, extras: dict) -> None:
++        self.logger.process_env_step(rewards, dones, extras)
++        self._episode_rewards += rewards
++        self._episode_lengths += 1
++        for key, sl in self.source_slices.items():
++            mask = dones[sl].bool()
++            self._returns[key].extend(self._episode_rewards[sl][mask].cpu().tolist())
++            self._lengths[key].extend(self._episode_lengths[sl][mask].cpu().tolist())
++        self._episode_rewards[dones.bool()] = 0
++        self._episode_lengths[dones.bool()] = 0
++
++    def _validate_optimizer(self, state: dict, expected: int, learning_rate: float) -> None:
++        steps = {float(value["step"]) for value in state["state"].values()}
++        if steps != {expected} or any(
++            group["lr"] != learning_rate for group in state["param_groups"]
++        ):
++            raise ValueError("incomplete optimizer update or learning-rate mismatch")
++        ids = [index for group in state["param_groups"] for index in group["params"]]
++        params = [param for group in self.alg.optimizer.param_groups for param in group["params"]]
++        if len(ids) != len(params) or len(ids) != len(set(ids)) or set(ids) != set(state["state"]):
++            raise ValueError("incomplete optimizer parameter state")
++        for index, param in zip(ids, params):
++            for name in ("exp_avg", "exp_avg_sq"):
++                value = state["state"][index][name]
++                if value.shape != param.shape or not bool(torch.isfinite(value).all()):
++                    raise ValueError("invalid optimizer moment")
++
++    def _validate_normalizers(self, saved: dict, samples: int) -> None:
++        for key in ("actor_state_dict", "critic_state_dict"):
++            value = saved[key].get("obs_normalizer.count")
++            if (
++                value is None
++                or value.dtype != torch.int64
++                or value.numel() != 1
++                or int(value) != samples
++            ):
++                raise ValueError("normalizer sample counter mismatch")
++            if any(not bool(torch.isfinite(value).all()) for value in saved[key].values()):
++                raise ValueError("non-finite model state")
++
++    def learn(self, num_learning_iterations: int, init_at_random_ep_len: bool = False) -> None:
++        if self._closed:
++            raise RuntimeError("runner is closed")
++        try:
++            if num_learning_iterations <= 0:
++                raise ValueError("positive iterations required")
++            if init_at_random_ep_len:
++                self.env.episode_length_buf = torch.randint_like(
++                    self.env.episode_length_buf, high=int(self.env.max_episode_length)
++                )
++            self.alg.train_mode()
++            self._writer_started = True
++            self.logger.init_logging_writer()
++            start_it, total_it = self.next_iteration, self.next_iteration + num_learning_iterations
++            for it in range(start_it, total_it):
++                self._checkpoint_ready = False
++                start = time.monotonic()
++                window = self.collector.collect(
++                    it, self.policy_version, self.normalizer_version, on_step=self._on_step
++                )
++                self.latest_window = window
++                self.alg.storage = window.prepare(self.alg)
++                collect_time = time.monotonic() - start
++                sample_budget = window.spec.transitions
++                if sample_budget % 4:
++                    raise ValueError("minibatch partition would drop rollout samples")
++                generator = self.alg.storage.mini_batch_generator
++                epoch_samples = [0] * 5
++                batch_count = 0
++
++                def audited_batches(num_mini_batches: int, num_epochs: int = 8):
++                    nonlocal batch_count
++                    for batch in generator(num_mini_batches, num_epochs):
++                        if (
++                            batch.actions is None
++                            or batch_count >= 20
++                            or len(batch.actions) != sample_budget // 4
++                        ):
++                            raise ValueError("native PPO minibatch budget mismatch")
++                        epoch_samples[batch_count // 4] += len(batch.actions)
++                        batch_count += 1
++                        yield batch
++
++                self.alg.storage.mini_batch_generator = audited_batches
++                start = time.monotonic()
++                losses = self.alg.update()
++                learn_time = time.monotonic() - start
++                expected_steps = (it + 1) * 20
++                self._validate_optimizer(
++                    self.alg.optimizer.state_dict(), expected_steps, self.alg.learning_rate
++                )
++                if epoch_samples != [sample_budget] * 5 or not all(
++                    math.isfinite(float(value)) for value in losses.values()
++                ):
++                    raise ValueError("incomplete epochs or non-finite native PPO loss")
++                self.current_learning_iteration = it
++                self.next_iteration = self.policy_version = it + 1
++                self.normalizer_version = (it + 1) * 24
++                self.total_transitions = (it + 1) * sample_budget
++                self.optimizer_steps = expected_steps
++                self._validate_normalizers(self.alg.save(), self.total_transitions)
++                self.logger.log(
++                    it=it,
++                    start_it=start_it,
++                    total_it=total_it,
++                    collect_time=collect_time,
++                    learn_time=learn_time,
++                    loss_dict=losses,
++                    learning_rate=self.alg.learning_rate,
++                    action_std=self.alg.get_policy().output_std,
++                    rnd_weight=None,
++                )
++                self._log_window(window, losses, epoch_samples, collect_time, learn_time)
++                self._checkpoint_ready = True
++                if self.logger.log_dir is not None and (it % 500 == 0 or it == total_it - 1):
++                    self.save(str(Path(self.logger.log_dir) / f"model_{it}.pt"))
++        finally:
++            self.close()
++
++    def _log_window(
++        self, window: Any, losses: dict, epoch_samples: list[int], collect: float, learn: float
++    ) -> None:
++        sources = {}
++        for source in window.sources:
++            key = source.source_id
++            sources[key] = {
++                "transitions": window.spec.quotas[key],
++                "reward": float(source.raw.rewards.mean()),
++                "terminated": int(source.terminated.sum()),
++                "truncated": int(source.truncated.sum()),
++                "episode_return": float(np.mean(self._returns[key]))
++                if self._returns[key]
++                else None,
++                "episode_length": float(np.mean(self._lengths[key]))
++                if self._lengths[key]
++                else None,
++            }
++            if self.logger.writer is not None:
++                for name, value in sources[key].items():
++                    if value is not None:
++                        self.logger.writer.add_scalar(
++                            f"Source/{key}/{name}", value, self.current_learning_iteration
++                        )
++        self.last_metrics = {
++            "iteration": self.current_learning_iteration,
++            "generation": self.generation,
++            "window_stamp": window.spec.stamp,
++            "policy_version": self.policy_version,
++            "normalizer_version": self.normalizer_version,
++            "optimizer_steps": self.optimizer_steps,
++            "total_transitions": self.total_transitions,
++            "epoch_samples": epoch_samples,
++            "sources": sources,
++            "reward": sum(value["reward"] * value["transitions"] for value in sources.values())
++            / window.spec.transitions,
++            "episode_return": float(np.mean(self.logger.rewbuffer))
++            if self.logger.rewbuffer
++            else None,
++            "episode_length": float(np.mean(self.logger.lenbuffer))
++            if self.logger.lenbuffer
++            else None,
++            "losses": losses,
++            "learning_rate": self.alg.learning_rate,
++            "collect_seconds": collect,
++            "learn_seconds": learn,
++        }
++        if self.logger.log_dir is not None:
++            with (Path(self.logger.log_dir) / "synchronous_metrics.jsonl").open("a") as stream:
++                stream.write(json.dumps(self.last_metrics, allow_nan=False) + "\n")
++
++    def save(self, path: str, infos: dict | None = None) -> None:
++        if not self._checkpoint_ready:
++            raise RuntimeError("checkpoint requires a complete iteration")
++        saved = self.alg.save()
++        saved.update(iter=self.current_learning_iteration, infos=infos)
++        saved["synchronous"] = {
++            "format": 1,
++            "complete": True,
++            "contract": self.contract,
++            **{
++                key: getattr(self, key)
++                for key in (
++                    "next_iteration",
++                    "policy_version",
++                    "normalizer_version",
++                    "optimizer_steps",
++                    "total_transitions",
++                    "generation",
++                )
++            },
++            "learning_rate": self.alg.learning_rate,
++            "logger": {
++                "tot_time": self.logger.tot_time,
++                "returns": dict(self._returns),
++                "lengths": dict(self._lengths),
++                "rewbuffer": self.logger.rewbuffer,
++                "lenbuffer": self.logger.lenbuffer,
++            },
++            "rng": {
++                "python": random.getstate(),
++                "numpy": np.random.get_state(),
++                "torch": torch.get_rng_state(),
++                "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
++            },
++        }
++        target = Path(path)
++        target.parent.mkdir(parents=True, exist_ok=True)
++        fd, temporary = tempfile.mkstemp(
++            prefix=f".{target.name}.", suffix=".tmp", dir=target.parent
++        )
++        try:
++            with os.fdopen(fd, "wb") as stream:
++                torch.save(saved, stream)
++                stream.flush()
++                os.fsync(stream.fileno())
++            os.replace(temporary, target)
++        finally:
++            Path(temporary).unlink(missing_ok=True)
++
++    def load(
++        self,
++        path: str,
++        load_cfg: dict | None = None,
++        strict: bool = True,
++        map_location: str | None = None,
++    ) -> dict:
++        try:
++            if self._closed or self._writer_started or load_cfg is not None or not strict:
++                raise ValueError("resume requires a fresh runner and full strict learner restore")
++            saved = torch.load(path, weights_only=False, map_location=map_location or self.device)
++            meta = saved["synchronous"]
++            if (
++                meta["format"] != 1
++                or meta["complete"] is not True
++                or meta["contract"] != self.contract
++            ):
++                raise ValueError("incomplete checkpoint or config/assets/source topology mismatch")
++            iteration = saved["iter"]
++            if type(iteration) is not int or iteration < 0:
++                raise ValueError("invalid completed iteration")
++            count = iteration + 1
++            expected = {
++                "next_iteration": count,
++                "policy_version": count,
++                "normalizer_version": count * 24,
++                "optimizer_steps": count * 20,
++                "total_transitions": count * 24 * self.env.num_envs,
++            }
++            if any(
++                type(meta[key]) is not int or meta[key] != value for key, value in expected.items()
++            ):
++                raise ValueError("checkpoint counter mismatch")
++            if type(meta["generation"]) is not int or meta["generation"] < 0:
++                raise ValueError("invalid recovery generation")
++            lr = float(meta["learning_rate"])
++            if not math.isfinite(lr) or lr <= 0:
++                raise ValueError("invalid checkpoint learning rate")
++            self._validate_optimizer(saved["optimizer_state_dict"], expected["optimizer_steps"], lr)
++            self._validate_normalizers(saved, expected["total_transitions"])
++            self.alg.load(saved, None, True)
++            self.alg.learning_rate = lr
++            for key, value in expected.items():
++                setattr(self, key, value)
++            self.current_learning_iteration = iteration
++            self.generation = meta["generation"] + 1
++            self.env.reset()
++            self.collector = CentralCollector(self.alg, self.env, self.source_slices)
++            self.collector.generation = self.generation
++            self._returns, self._lengths = meta["logger"]["returns"], meta["logger"]["lengths"]
++            self.logger.rewbuffer, self.logger.lenbuffer = (
++                meta["logger"]["rewbuffer"],
++                meta["logger"]["lenbuffer"],
++            )
++            self.logger.tot_time = meta["logger"]["tot_time"]
++            self.logger.tot_timesteps = self.total_transitions
++            rng = meta["rng"]
++            random.setstate(rng["python"])
++            np.random.set_state(rng["numpy"])
++            torch.set_rng_state(rng["torch"].cpu())
++            if rng["cuda"]:
++                torch.cuda.set_rng_state_all([state.cpu() for state in rng["cuda"]])
++            return saved["infos"] or {}
++        except BaseException:
++            self.close()
++            raise
++
++    def close(self) -> None:
++        if self._closed:
++            return
++        self._closed = True
++        try:
++            if self._writer_started:
++                try:
++                    if self.logger.writer is not None:
++                        try:
++                            self.logger.writer.flush()
++                        finally:
++                            self.logger.writer.close()
++                finally:
++                    self.logger.stop_logging_writer()
++        finally:
++            self.env.close()
+diff --git a/src/uni_rl/ipc/synchronous_env.py b/src/uni_rl/ipc/synchronous_env.py
+new file mode 100644
+index 0000000..435fbcc
+--- /dev/null
++++ b/src/uni_rl/ipc/synchronous_env.py
+@@ -0,0 +1,461 @@
++"""Synchronous physics services for a centrally evaluated policy.
++
++One spawn worker owns each injected environment, including its nested backend
++workers. A bounded pipe permits one request per source; a failed request poisons
++the entire service because physics calls cannot safely be retried.
++"""
++
++from __future__ import annotations
++
++import multiprocessing as mp
++import os
++import signal
++import sys
++import time
++import traceback
++from collections.abc import Mapping, Sequence
++from concurrent.futures import Future, ThreadPoolExecutor, wait
++from dataclasses import dataclass
++from multiprocessing.connection import Connection
++from types import SimpleNamespace
++from typing import Any, Protocol, runtime_checkable
++
++import numpy as np
++
++from uni_rl.env_contract import EnvFactory, EnvProtocol, EnvStateProtocol
++from uni_rl.utils.seed import apply_training_seed
++
++
++@dataclass(frozen=True)
++class SourceSpec:
++    source_id: str
++    factory: EnvFactory
++    num_envs: int
++    env_cfg_override: Mapping[str, Any] | None = None
++    process_env: Mapping[str, str] | None = None
++
++
++@dataclass
++class _State:
++    obs: dict[str, np.ndarray]
++    reward: np.ndarray
++    terminated: np.ndarray
++    truncated: np.ndarray
++    info: dict[str, Any]
++    final_observation: dict[str, np.ndarray] | None
++
++
++@runtime_checkable
++class _EpisodeLengthSetter(Protocol):
++    def set_episode_length_buf(self, values: np.ndarray) -> None: ...
++
++
++def _metadata(env: EnvProtocol) -> dict[str, Any]:
++    return dict(
++        num_envs=env.num_envs,
++        obs_groups_spec=dict(env.obs_groups_spec),
++        observation_shape=tuple(env.observation_space.shape),
++        action_shape=tuple(env.action_space.shape),
++        max_episode_seconds=float(env.cfg.max_episode_seconds),
++        ctrl_dt=float(env.cfg.ctrl_dt),
++    )
++
++
++def _state_payload(state: EnvStateProtocol) -> _State:
++    return _State(
++        state.obs,
++        state.reward,
++        state.terminated,
++        state.truncated,
++        state.info,
++        state.final_observation,
++    )
++
++
++def _worker(conn: Connection, source: SourceSpec) -> None:
++    env: EnvProtocol | None = None
++    seq = 0
++    try:
++        if sys.platform == "linux":
++            os.setsid()
++        os.environ.update(source.process_env or {})
++        override = dict(source.env_cfg_override or {})
++        apply_training_seed(int(override.get("seed", 0)), cuda=False)
++        env = source.factory(source.num_envs, override or None)
++        conn.send((source.source_id, seq, "ok", _metadata(env)))
++        while True:
++            incoming, operation, payload = conn.recv()
++            if incoming != seq + 1:
++                raise RuntimeError(f"expected request {seq + 1}, got {incoming}")
++            seq = incoming
++            if operation == "close":
++                break
++            if operation == "init_state":
++                result: Any = _state_payload(env.init_state())
++            elif operation == "step":
++                result = _state_payload(env.step(payload))
++            elif operation == "reset":
++                result = (
++                    env.reset(payload)
++                    if len(payload)
++                    else (
++                        {k: np.empty((0, d), np.float32) for k, d in env.obs_groups_spec.items()},
++                        {},
++                    )
++                )
++            elif operation == "set_episode_length_buf":
++                if not isinstance(env, _EpisodeLengthSetter):
++                    raise TypeError("source does not support set_episode_length_buf")
++                env.set_episode_length_buf(payload)
++                result = None
++            else:
++                raise RuntimeError(f"unknown operation {operation!r}")
++            conn.send((source.source_id, seq, "ok", result))
++    except (EOFError, BrokenPipeError):
++        pass
++    except BaseException:
++        try:
++            conn.send((source.source_id, seq, "error", traceback.format_exc()))
++        except (EOFError, OSError):
++            pass
++    finally:
++        try:
++            if env is not None:
++                env.close()
++        finally:
++            conn.close()
++
++
++def _receive(conn: Connection, request: tuple | None) -> Any:
++    if request is not None:
++        if conn.poll():
++            raise RuntimeError("unsolicited or duplicate source response")
++        conn.send(request)
++    result = conn.recv()
++    if result[2] == "ok" and conn.poll():
++        raise RuntimeError("duplicate source response or worker exit")
++    return result
++
++
++def _group_exists(pid: int) -> bool:
++    try:
++        os.killpg(pid, 0)
++        return True
++    except ProcessLookupError:
++        return False
++
++
++class SynchronousEnv:
++    """Aggregate injected sources in declared order, with no child inference.
++
++    Arrays are float32 (flags bool), with full source batches for terminal
++    observations. ``info['source_logs']`` preserves each source's complete info.
++    This service is single-caller; overlapping calls are rejected.
++    """
++
++    def __init__(
++        self,
++        sources: Sequence[SourceSpec],
++        *,
++        timeout_s: float = 30.0,
++        startup_timeout_s: float = 600.0,
++    ) -> None:
++        self.sources = tuple(sources)
++        if not self.sources or len({s.source_id for s in sources}) != len(sources):
++            raise ValueError("sources must be nonempty with unique source IDs")
++        if any(not s.source_id or s.num_envs <= 0 for s in sources):
++            raise ValueError("each source needs an ID and a positive num_envs")
++        if not all(np.isfinite(t) and t > 0 for t in (timeout_s, startup_timeout_s)):
++            raise ValueError("timeouts must be finite and positive")
++        self.timeout_s = timeout_s
++        self.source_slices: dict[str, slice] = {}
++        self.num_envs = 0
++        for source in self.sources:
++            self.source_slices[source.source_id] = slice(
++                self.num_envs, self.num_envs + source.num_envs
++            )
++            self.num_envs += source.num_envs
++        self.state: _State | None = None
++        self._seq = 0
++        self._closed = self._inflight = False
++        self._connections: list[Connection] = []
++        self._processes: list[Any] = []
++        self._requests: list[Future] = []
++        self._pool = ThreadPoolExecutor(max_workers=len(sources))
++        self.play_capabilities = SimpleNamespace(supports_physics_state_playback=False)
++        try:
++            context = mp.get_context("spawn")
++            for source in self.sources:
++                parent, child = context.Pipe()
++                process = context.Process(
++                    target=_worker,
++                    args=(child, source),
++                    name=f"env-{source.source_id}",
++                    daemon=False,
++                )
++                self._connections.append(parent)
++                try:
++                    process.start()
++                    self._processes.append(process)
++                finally:
++                    child.close()
++            metadata = self._exchange(None, [None] * len(sources), startup_timeout_s)
++            reference = {k: v for k, v in metadata[0].items() if k != "num_envs"}
++            for source, current in zip(self.sources, metadata, strict=True):
++                if current["num_envs"] != source.num_envs or any(
++                    current[key] != value for key, value in reference.items()
++                ):
++                    raise ValueError(f"source {source.source_id}: environment metadata mismatch")
++            self.obs_groups_spec: dict[str, int] = reference["obs_groups_spec"]
++            if "obs" not in self.obs_groups_spec or any(
++                not isinstance(d, int) or d <= 0 for d in self.obs_groups_spec.values()
++            ):
++                raise ValueError("observation groups require positive dimensions and an obs group")
++            self.observation_space = SimpleNamespace(shape=reference["observation_shape"])
++            self.action_space = SimpleNamespace(shape=reference["action_shape"])
++            observation_shapes = {
++                (self.obs_groups_spec["obs"],),
++                (sum(self.obs_groups_spec.values()),),
++            }
++            if self.observation_space.shape not in observation_shapes or (
++                len(self.action_space.shape) != 1 or self.action_space.shape[0] <= 0
++            ):
++                raise ValueError("invalid observation or action space")
++            self.cfg = SimpleNamespace(
++                max_episode_seconds=reference["max_episode_seconds"], ctrl_dt=reference["ctrl_dt"]
++            )
++            if not all(
++                np.isfinite(v) and v > 0 for v in (self.cfg.max_episode_seconds, self.cfg.ctrl_dt)
++            ):
++                raise ValueError(
++                    "episode duration and control timestep must be finite and positive"
++                )
++        except BaseException:
++            self.close()
++            raise
++
++    def _exchange(self, operation: str | None, payloads: list[Any], timeout: float) -> list[Any]:
++        if self._closed:
++            raise RuntimeError("synchronous environment is closed")
++        if self._inflight:
++            raise RuntimeError("a synchronous environment request is already in flight")
++        self._inflight = True
++        if operation is not None:
++            self._seq += 1
++        try:
++            futures = self._requests = [
++                self._pool.submit(
++                    _receive, conn, None if operation is None else (self._seq, operation, payload)
++                )
++                for conn, payload in zip(self._connections, payloads, strict=True)
++            ]
++            _, pending = wait(futures, timeout=timeout)
++            if pending:
++                missing = [
++                    source.source_id
++                    for source, future in zip(self.sources, futures, strict=True)
++                    if future in pending
++                ]
++                raise TimeoutError(
++                    f"{operation or 'startup'} request {self._seq}: missing {missing}"
++                )
++            values = []
++            for source, future in zip(self.sources, futures, strict=True):
++                try:
++                    source_id, seq, status, value = future.result()
++                except (EOFError, OSError) as exc:
++                    raise RuntimeError(f"source {source.source_id} worker crashed") from exc
++                if source_id != source.source_id or seq != self._seq:
++                    raise RuntimeError(f"source {source.source_id}: stale or mismatched response")
++                if status != "ok":
++                    raise RuntimeError(f"source {source_id} request {seq} failed:\n{value}")
++                values.append(value)
++            return values
++        except BaseException:
++            self.close()
++            raise
++        finally:
++            self._inflight = False
++
++    @staticmethod
++    def _array(value: Any, shape: tuple[int, ...], dtype: Any, label: str) -> None:
++        if (
++            not isinstance(value, np.ndarray)
++            or value.shape != shape
++            or value.dtype != dtype
++            or not np.isfinite(value).all()
++        ):
++            raise ValueError(f"{label}: expected finite {np.dtype(dtype)} array of shape {shape}")
++
++    def _observations(self, obs: Any, count: int, label: str) -> None:
++        if not isinstance(obs, dict) or obs.keys() != self.obs_groups_spec.keys():
++            raise ValueError(f"{label}: observation groups mismatch")
++        for key, dim in self.obs_groups_spec.items():
++            self._array(obs[key], (count, dim), np.float32, f"{label}/{key}")
++
++    def _aggregate(self, states: list[_State], *, transition: bool) -> _State:
++        try:
++            for source, state in zip(self.sources, states, strict=True):
++                label, count = source.source_id, source.num_envs
++                self._observations(state.obs, count, label)
++                self._array(state.reward, (count,), np.float32, f"{label}/reward")
++                for name in ("terminated", "truncated"):
++                    self._array(getattr(state, name), (count,), np.bool_, f"{label}/{name}")
++                if not isinstance(state.info, dict):
++                    raise ValueError(f"{label}: info must be a dict")
++                if state.final_observation is not None:
++                    self._observations(state.final_observation, count, f"{label}/final_observation")
++                elif transition and np.any(state.terminated | state.truncated):
++                    raise ValueError(f"{label}: done requires final_observation")
++            self.state = _State(
++                {key: np.concatenate([s.obs[key] for s in states]) for key in self.obs_groups_spec},
++                np.concatenate([s.reward for s in states]),
++                np.concatenate([s.terminated for s in states]),
++                np.concatenate([s.truncated for s in states]),
++                {
++                    "source_logs": {
++                        s.source_id: v.info for s, v in zip(self.sources, states, strict=True)
++                    }
++                },
++                {
++                    key: np.concatenate([(s.final_observation or s.obs)[key] for s in states])
++                    for key in self.obs_groups_spec
++                }
++                if any(s.final_observation is not None for s in states)
++                else None,
++            )
++            return self.state
++        except BaseException:
++            self.close()
++            raise
++
++    def init_state(self) -> _State:
++        if self.state is not None:
++            if self._closed:
++                raise RuntimeError("synchronous environment is closed")
++            return self.state
++        return self._aggregate(
++            self._exchange("init_state", [None] * len(self.sources), self.timeout_s),
++            transition=False,  # Initialization flags may be reset sentinels, not terminal steps.
++        )
++
++    def step(self, actions: np.ndarray) -> _State:
++        self._array(actions, (self.num_envs, *self.action_space.shape), np.float32, "actions")
++        if self.state is None:
++            raise RuntimeError("call init_state or reset before step")
++        return self._aggregate(
++            self._exchange(
++                "step",
++                [actions[self.source_slices[s.source_id]] for s in self.sources],
++                self.timeout_s,
++            ),
++            transition=True,
++        )
++
++    def reset(self, env_indices: np.ndarray) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
++        indices = np.asarray(env_indices)
++        if (
++            indices.ndim != 1
++            or not np.issubdtype(indices.dtype, np.integer)
++            or np.any(indices < 0)
++            or np.any(indices >= self.num_envs)
++            or len(np.unique(indices)) != len(indices)
++        ):
++            raise ValueError("reset requires unique valid environment indices")
++        state = self.init_state()
++        selections = [
++            np.flatnonzero((indices >= span.start) & (indices < span.stop))
++            for span in self.source_slices.values()
++        ]
++        payloads = [
++            indices[selection] - span.start
++            for selection, span in zip(selections, self.source_slices.values(), strict=True)
++        ]
++        results = self._exchange("reset", payloads, self.timeout_s)
++        try:
++            obs = {
++                key: np.empty((len(indices), dim), np.float32)
++                for key, dim in self.obs_groups_spec.items()
++            }
++            logs = {}
++            for source, selection, (part, info) in zip(
++                self.sources, selections, results, strict=True
++            ):
++                self._observations(part, len(selection), f"{source.source_id}/reset")
++                if not isinstance(info, dict):
++                    raise ValueError("reset info must be a dict")
++                logs[source.source_id] = info
++                for key in obs:
++                    obs[key][selection] = part[key]
++            for key in obs:
++                state.obs[key][indices] = obs[key]
++            state.reward[indices] = 0
++            state.terminated[indices] = state.truncated[indices] = False
++            state.info = {"source_logs": logs}
++            return obs, state.info
++        except BaseException:
++            self.close()
++            raise
++
++    def set_episode_length_buf(self, values: np.ndarray) -> None:
++        if (
++            not isinstance(values, np.ndarray)
++            or values.shape != (self.num_envs,)
++            or not np.issubdtype(values.dtype, np.integer)
++            or np.any(values < 0)
++        ):
++            raise ValueError("episode lengths must be nonnegative integer values, one per env")
++        self._exchange(
++            "set_episode_length_buf",
++            [values[self.source_slices[s.source_id]] for s in self.sources],
++            self.timeout_s,
++        )
++
++    def set_nan_guard(self, guard: Any) -> None:
++        if guard is not None:
++            raise ValueError("synchronous physics services do not support playback NaN guards")
++
++    def close(self) -> None:
++        if self._closed:
++            return
++        self._closed = True
++        closing = []
++        for index, conn in enumerate(self._connections):
++            if not self._inflight or (index < len(self._requests) and self._requests[index].done()):
++                self._pool.submit(conn.send, (self._seq + 1, "close", None))
++                closing.append(index)
++        # Vendor services release nested pools and shared memory in env.close().
++        # A timed-out request still executing cannot acknowledge close safely.
++        deadline = time.monotonic() + 15.0
++        for index in closing:
++            if index < len(self._processes):
++                self._processes[index].join(max(0.0, deadline - time.monotonic()))
++        # A leader may already have exited while its vendor workers remain alive.
++        for sig in (signal.SIGTERM, signal.SIGKILL):
++            for process in self._processes:
++                if sys.platform == "linux":
++                    try:
++                        os.killpg(process.pid, sig)
++                    except ProcessLookupError:
++                        pass
++                if process.is_alive():
++                    process.kill() if sig == signal.SIGKILL else process.terminate()
++            deadline = time.monotonic() + 0.5
++            for process in self._processes:
++                process.join(max(0.0, deadline - time.monotonic()))
++            if sys.platform == "linux":
++                while time.monotonic() < deadline and any(
++                    _group_exists(process.pid) for process in self._processes
++                ):
++                    time.sleep(0.01)
++        for conn in self._connections:
++            conn.close()
++        self._pool.shutdown(wait=True, cancel_futures=True)
++        for process in self._processes:
++            process.close()
++
++    def __enter__(self) -> SynchronousEnv:
++        return self
++
++    def __exit__(self, *_: Any) -> None:
++        self.close()
+diff --git a/src/uni_rl/logging/synchronous_report.py b/src/uni_rl/logging/synchronous_report.py
+new file mode 100644
+index 0000000..970a47e
+--- /dev/null
++++ b/src/uni_rl/logging/synchronous_report.py
+@@ -0,0 +1,516 @@
++"""Offline evidence audit and curves for complete synchronous PPO runs."""
++
++from __future__ import annotations
++
++import hashlib
++import importlib
++import json
++import math
++from pathlib import Path
++from typing import Any
++
++import torch
++
++SOURCE_ORDER = ("isaacsim", "isaacgym", "genesis", "motrix")
++
++
++def _require(condition: bool, message: str) -> None:
++    if not condition:
++        raise ValueError(message)
++
++
++def _integer(value: Any, expected: int, name: str) -> None:
++    _require(type(value) is int and value == expected, f"{name}: expected integer {expected}")
++
++
++def _number(value: Any, name: str, *, nullable: bool = False) -> float:
++    if value is None and nullable:
++        return float("nan")
++    _require(type(value) in (int, float) and math.isfinite(value), f"non-finite {name}")
++    return float(value)
++
++
++def _sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as stream:
++        for block in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(block)
++    return digest.hexdigest()
++
++
++def _counters(iteration: int, samples: int) -> dict[str, int]:
++    count = iteration + 1
++    return dict(
++        next_iteration=count,
++        policy_version=count,
++        normalizer_version=count * 24,
++        optimizer_steps=count * 20,
++        total_transitions=count * samples,
++    )
++
++
++def _model_state(state: dict, samples: int) -> str:
++    count = state["obs_normalizer.count"]
++    _require(
++        isinstance(count, torch.Tensor)
++        and count.dtype == torch.int64
++        and count.numel() == 1
++        and int(count) == samples,
++        "invalid normalizer sample count",
++    )
++    digest = hashlib.sha256()
++    for name, tensor in sorted(state.items()):
++        _require(
++            isinstance(tensor, torch.Tensor) and bool(torch.isfinite(tensor).all()),
++            "non-finite model state",
++        )
++        if name.startswith("obs_normalizer."):
++            digest.update(f"{name}:{tensor.dtype}:{tuple(tensor.shape)}:".encode())
++            digest.update(tensor.contiguous().numpy().tobytes())
++    for name in ("_mean", "_var", "_std"):
++        _require(
++            state[f"obs_normalizer.{name}"].dtype == torch.float32, "float32 normalization required"
++        )
++    _require(
++        bool((state["obs_normalizer._var"] >= 0).all())
++        and bool((state["obs_normalizer._std"] >= 0).all()),
++        "negative normalizer variance/std",
++    )
++    return digest.hexdigest()
++
++
++def _checkpoint(path: Path, iteration: int, samples: int, contract: dict) -> tuple[dict, dict]:
++    saved = torch.load(path, weights_only=False, map_location="cpu")
++    _integer(saved["iter"], iteration, "checkpoint iteration")
++    meta = saved["synchronous"]
++    _integer(meta["format"], 1, "checkpoint format")
++    _require(
++        meta["complete"] is True and meta["contract"] == contract,
++        "incomplete or mismatched checkpoint contract",
++    )
++    for name, value in _counters(iteration, samples).items():
++        _integer(meta[name], value, f"checkpoint {name}")
++    _require(
++        type(meta["generation"]) is int and meta["generation"] >= 0, "invalid checkpoint generation"
++    )
++    lr = _number(meta["learning_rate"], "checkpoint learning rate")
++    _require(lr > 0, "positive learning rate required")
++    optimizer = saved["optimizer_state_dict"]
++    ids = [index for group in optimizer["param_groups"] for index in group["params"]]
++    _require(
++        bool(ids) and len(ids) == len(set(ids)) and set(ids) == set(optimizer["state"]),
++        "incomplete optimizer parameter state",
++    )
++    for group in optimizer["param_groups"]:
++        _require(group["lr"] == lr, "optimizer learning rate mismatch")
++    params = [
++        value
++        for name in ("actor", "critic")
++        for key, value in saved[f"{name}_state_dict"].items()
++        if not key.startswith("obs_normalizer.")
++    ]
++    _require(len(params) == len(ids), "optimizer/model parameter count mismatch")
++    for index, parameter in zip(ids, params):
++        state = optimizer["state"][index]
++        step = state["step"]
++        _require(
++            isinstance(step, torch.Tensor)
++            and step.numel() == 1
++            and float(step) == (iteration + 1) * 20,
++            "actual Adam step mismatch",
++        )
++        for name in ("exp_avg", "exp_avg_sq"):
++            _require(
++                isinstance(state[name], torch.Tensor)
++                and state[name].shape == parameter.shape
++                and bool(torch.isfinite(state[name]).all()),
++                "invalid optimizer moment",
++            )
++    hashes = {
++        name: _model_state(saved[f"{name}_state_dict"], (iteration + 1) * samples)
++        for name in ("actor", "critic")
++    }
++    return saved, hashes
++
++
++def _history(
++    run_dir: Path, context: dict, cutoff: int | None = None, seen=None
++) -> tuple[list[dict], list[dict]]:
++    seen = set() if seen is None else seen
++    _require(run_dir not in seen, "cyclic resume ancestry")
++    seen.add(run_dir)
++    manifest = json.loads((run_dir / "sources_manifest.json").read_text())
++    run = json.loads((run_dir / "run_config.json").read_text())
++    contract, algo = context["contract"], run["config"]["algo"]
++    _require(
++        run["run"]["mode"] == "synchronous_four_source"
++        and {key: manifest[key] for key in context["behavior"]} == context["behavior"]
++        and manifest["digest"] == run["run"]["manifest_digest"] == contract["manifest_digest"],
++        "resume ancestry manifest mismatch",
++    )
++    _require(
++        run["config"]["unidr"]["sources"] == context["sources"], "resume ancestry sources mismatch"
++    )
++    for key in ("num_envs", "num_steps_per_env", "save_interval"):
++        _integer(algo[key], contract["train_cfg"][key], f"ancestry {key}")
++    for key in ("num_learning_epochs", "num_mini_batches"):
++        _integer(algo["algorithm"][key], contract["train_cfg"]["algorithm"][key], f"ancestry {key}")
++    _require(
++        algo["empirical_normalization"] is True and algo["algorithm"]["schedule"] == "adaptive",
++        "ancestry PPO mismatch",
++    )
++    prefix: list[dict] = []
++    chain: list[dict] = []
++    generation = 0
++    origin = None
++    if algo.get("resume", False):
++        origin = Path(algo["resume_path"])
++        _require(origin.is_absolute(), "resume ancestry requires an absolute checkpoint path")
++        origin = origin.resolve(strict=True)
++        boundary = torch.load(origin, weights_only=False, map_location="cpu")["iter"]
++        _require(
++            type(boundary) is int and boundary >= 0 and (cutoff is None or boundary < cutoff),
++            "invalid resume ancestry boundary",
++        )
++        parent, _ = _checkpoint(origin, boundary, context["samples"], contract)
++        prefix, chain = _history(origin.parent, context, boundary, seen)
++        _require(
++            prefix[-1]["generation"] == parent["synchronous"]["generation"]
++            and prefix[-1]["learning_rate"] == parent["synchronous"]["learning_rate"],
++            "ancestry checkpoint metrics mismatch",
++        )
++        generation = parent["synchronous"]["generation"] + 1
++    else:
++        _require(not algo.get("resume_path"), "resume path provided with resume disabled")
++    rows = []
++    with (run_dir / "synchronous_metrics.jsonl").open() as stream:
++        for line in stream:
++            row = json.loads(line)
++            rows.append(row)
++            if cutoff is not None and row["iteration"] == cutoff:
++                break  # Abandoned updates after the selected checkpoint are not this run's history.
++        excluded_tail_bytes = len(stream.read().encode("utf-8"))
++    _require(
++        bool(rows) and (cutoff is None or rows[-1]["iteration"] == cutoff),
++        "missing ancestry iteration rows",
++    )
++    _require(
++        type(algo["max_iterations"]) is int and algo["max_iterations"] > rows[-1]["iteration"],
++        "ancestry intent does not cover its history",
++    )
++    _require(
++        all(type(row["generation"]) is int and row["generation"] == generation for row in rows),
++        "resume generation mismatch",
++    )
++    chain.append(
++        {
++            "run_dir": str(run_dir),
++            "through_iteration": rows[-1]["iteration"],
++            "resume_checkpoint": str(origin) if origin else None,
++            "resume_checkpoint_sha256": _sha256(origin) if origin else None,
++            "excluded_metric_tail_bytes": excluded_tail_bytes,
++        }
++    )
++    return prefix + rows, chain
++
++
++def _audit(
++    run_dir: Path, expected_iterations: int, num_envs: int, final_checkpoint: str | Path | None
++) -> tuple[dict, list[dict]]:
++    _require(
++        type(expected_iterations) is int and expected_iterations >= 2,
++        "at least two expected iterations required",
++    )
++    _require(type(num_envs) is int and num_envs > 0, "positive per-source num_envs required")
++    samples = num_envs * 4 * 24
++    manifest = json.loads((run_dir / "sources_manifest.json").read_text())
++    run = json.loads((run_dir / "run_config.json").read_text())
++    behavior = {key: manifest[key] for key in ("sources", "algorithm", "assets")}
++    digest = hashlib.sha256(json.dumps(behavior, sort_keys=True, default=str).encode()).hexdigest()
++    _require(
++        digest == manifest["digest"] == run["run"]["manifest_digest"], "manifest digest mismatch"
++    )
++    _require(run["run"]["mode"] == "synchronous_four_source", "unexpected run mode")
++    _require(bool(manifest["assets"]), "missing asset fingerprints")
++    for value in manifest["assets"].values():
++        _require(
++            isinstance(value, str)
++            and len(value) == 64
++            and all(c in "0123456789abcdef" for c in value),
++            "invalid asset fingerprint",
++        )
++    cfg = run["config"]
++    configured_iterations = cfg["algo"]["max_iterations"]
++    final_path = run_dir / f"model_{expected_iterations - 1}.pt"
++    if final_checkpoint is None:
++        _integer(configured_iterations, expected_iterations, "run intent max_iterations")
++    else:
++        _require(
++            Path(final_checkpoint).resolve(strict=True) == final_path
++            and type(configured_iterations) is int
++            and configured_iterations >= expected_iterations,
++            "selected checkpoint must match the explicit budget within the original run intent",
++        )
++    for algorithm in (cfg["algo"], manifest["algorithm"]):
++        for name, value in (
++            ("num_envs", num_envs),
++            ("num_steps_per_env", 24),
++            ("save_interval", 500),
++        ):
++            _integer(algorithm[name], value, f"run intent {name}")
++        for name, value in (("num_learning_epochs", 5), ("num_mini_batches", 4)):
++            _integer(algorithm["algorithm"][name], value, f"run intent {name}")
++        _require(
++            algorithm["empirical_normalization"] is True
++            and algorithm["algorithm"]["schedule"] == "adaptive",
++            "native adaptive normalized PPO required",
++        )
++    _require(
++        tuple(source["source"] for source in manifest["sources"]) == SOURCE_ORDER,
++        "manifest source order mismatch",
++    )
++    _require(
++        tuple(source["name"] for source in cfg["unidr"]["sources"]) == SOURCE_ORDER,
++        "run intent source order mismatch",
++    )
++    for actual, intended in zip(manifest["sources"], cfg["unidr"]["sources"]):
++        _require(actual["device"] == intended["device"], "run intent source device mismatch")
++    contract = {
++        "manifest_digest": digest,
++        "train_cfg": manifest["algorithm"],
++        "num_envs": 4 * num_envs,
++        "sources": [
++            (source, i * num_envs, (i + 1) * num_envs) for i, source in enumerate(SOURCE_ORDER)
++        ],
++    }
++    rows, history = _history(
++        run_dir,
++        {
++            "behavior": behavior,
++            "contract": contract,
++            "sources": cfg["unidr"]["sources"],
++            "samples": samples,
++        },
++        cutoff=expected_iterations - 1 if final_checkpoint is not None else None,
++    )
++    _require(len(rows) == expected_iterations, "missing or extra iteration rows")
++    loss_names = set(rows[0]["losses"])
++    _require(bool(loss_names), "missing PPO losses")
++    for iteration, row in enumerate(rows):
++        _integer(row["iteration"], iteration, "iteration sequence")
++        _require(
++            row["window_stamp"] == [iteration, iteration, iteration * 24]
++            and all(type(value) is int for value in row["window_stamp"]),
++            "window stamp mismatch",
++        )
++        for name, value in _counters(iteration, samples).items():
++            if name != "next_iteration":
++                _integer(row[name], value, name)
++        _require(
++            row["epoch_samples"] == [samples] * 5
++            and all(type(value) is int for value in row["epoch_samples"]),
++            "epoch sample budget mismatch",
++        )
++        _require(
++            type(row["generation"]) is int
++            and row["generation"] >= (rows[iteration - 1]["generation"] if iteration else 0),
++            "invalid recovery generation sequence",
++        )
++        _require(tuple(row["sources"]) == SOURCE_ORDER, "metric source order mismatch")
++        for name in SOURCE_ORDER:
++            source = row["sources"][name]
++            _integer(source["transitions"], num_envs * 24, "source transitions")
++            for flag in ("terminated", "truncated"):
++                _require(
++                    type(source[flag]) is int and 0 <= source[flag] <= num_envs * 24,
++                    "invalid termination count",
++                )
++            for key in ("reward", "episode_return", "episode_length"):
++                _number(source[key], f"{name}/{key}", nullable=key != "reward")
++        for key in ("reward", "episode_return", "episode_length"):
++            _number(row[key], key, nullable=key != "reward")
++        _require(
++            math.isclose(
++                row["reward"],
++                sum(source["reward"] for source in row["sources"].values()) / 4,
++                rel_tol=1e-6,
++                abs_tol=1e-9,
++            ),
++            "global/source reward mismatch",
++        )
++        _require(
++            _number(row["learning_rate"], "learning rate") > 0, "positive learning rate required"
++        )
++        _require(set(row["losses"]) == loss_names, "PPO loss schema mismatch")
++        for value in row["losses"].values():
++            _number(value, "PPO loss")
++        times = [_number(row[key], key) for key in ("collect_seconds", "learn_seconds")]
++        _require(min(times) >= 0 and sum(times) > 0, "invalid iteration duration")
++    final, normalizer_hashes = _checkpoint(final_path, expected_iterations - 1, samples, contract)
++    initial, initial_hashes = _checkpoint(
++        Path(history[0]["run_dir"]) / "model_0.pt", 0, samples, contract
++    )
++    _require(
++        final["synchronous"]["generation"] == rows[-1]["generation"]
++        and initial["synchronous"]["generation"] == rows[0]["generation"],
++        "checkpoint/metric generation mismatch",
++    )
++    _require(
++        final["synchronous"]["learning_rate"] == rows[-1]["learning_rate"]
++        and initial["synchronous"]["learning_rate"] == rows[0]["learning_rate"],
++        "checkpoint/metric learning rate mismatch",
++    )
++    changed = {}
++    for name in ("actor", "critic"):
++        before, after = initial[f"{name}_state_dict"], final[f"{name}_state_dict"]
++        _require(
++            before.keys() == after.keys()
++            and all(
++                before[key].shape == after[key].shape and before[key].dtype == after[key].dtype
++                for key in before
++            ),
++            "model checkpoint schema mismatch",
++        )
++        changed[name] = any(
++            not torch.equal(before[key], after[key])
++            for key in before
++            if not key.startswith("obs_normalizer.")
++        )
++        _require(changed[name], f"{name} parameters did not change after iteration 0")
++    seconds = sum(row["collect_seconds"] + row["learn_seconds"] for row in rows)
++    result = {
++        "audit_passed": True,
++        "scope": "formal_training_budget"
++        if (expected_iterations, num_envs) == (10000, 1024)
++        else "bounded_validation_budget",
++        "audit_mode": "full_run" if final_checkpoint is None else "selected_checkpoint_prefix",
++        "configured_max_iterations": configured_iterations,
++        "run_dir": str(run_dir),
++        "history": history,
++        "iterations": expected_iterations,
++        "num_envs_per_source": num_envs,
++        "transitions_per_iteration": samples,
++        "total_transitions": samples * expected_iterations,
++        "optimizer_steps": 20 * expected_iterations,
++        "source_order": list(SOURCE_ORDER),
++        "generations": sorted({row["generation"] for row in rows}),
++        "source_total_transitions": {
++            name: num_envs * 24 * expected_iterations for name in SOURCE_ORDER
++        },
++        "manifest_digest": digest,
++        "final_checkpoint": str(final_path),
++        "final_checkpoint_sha256": _sha256(final_path),
++        "parameters_changed_since_iteration_0": changed,
++        "normalizer_sha256": normalizer_hashes,
++        "iteration_0_normalizer_sha256": initial_hashes,
++        "recorded_training_seconds": seconds,
++        "mean_transitions_per_second": samples * expected_iterations / seconds,
++        "final_metrics": rows[-1],
++        "evidence_limit": "Budget and saved learner state only; curves do not establish task success or holdout performance.",
++    }
++    if final_checkpoint is not None:
++        result["scope"] = "explicit_checkpoint_prefix"
++        result["evidence_limit"] += (
++            " Only committed history through the explicit checkpoint is audited; later metrics"
++            " and any in-flight collection or optimization are excluded. Original run intent is unchanged."
++        )
++    return result, rows
++
++
++def _read_audited(
++    run_dir: str | Path,
++    expected_iterations: int,
++    num_envs: int,
++    final_checkpoint: str | Path | None,
++) -> tuple[dict, list[dict]]:
++    try:
++        return _audit(Path(run_dir).resolve(), expected_iterations, num_envs, final_checkpoint)
++    except (KeyError, TypeError, AttributeError) as exc:
++        raise ValueError(f"invalid synchronous report input schema: {exc}") from exc
++
++
++def audit_run(
++    run_dir: str | Path,
++    *,
++    expected_iterations: int = 10000,
++    num_envs: int = 1024,
++    final_checkpoint: str | Path | None = None,
++) -> dict:
++    """Audit a full run, or an explicitly selected committed prefix without changing intent."""
++    return _read_audited(run_dir, expected_iterations, num_envs, final_checkpoint)[0]
++
++
++def _plot(rows: list[dict], output_dir: Path, samples: int) -> None:
++    plt = importlib.import_module("matplotlib.pyplot")
++
++    with plt.style.context("seaborn-v0_8-whitegrid"):
++        fig, axes = plt.subplots(3, 2, figsize=(14, 11), constrained_layout=True)
++        iterations = [row["iteration"] for row in rows]
++        for axis, key, label in zip(
++            axes.flat,
++            ("reward", "episode_return", "episode_length"),
++            ("Mean step reward", "Rolling episode return", "Rolling episode length (steps)"),
++        ):
++            axis.plot(
++                iterations,
++                [row[key] for row in rows],
++                label="All sources",
++                color="black",
++                linewidth=1.8,
++            )
++            for source in SOURCE_ORDER:
++                axis.plot(
++                    iterations,
++                    [row["sources"][source][key] for row in rows],
++                    label=source,
++                    linewidth=1,
++                )
++            axis.set_ylabel(label)
++            axis.legend(fontsize=8)
++        axes.flat[3].plot(iterations, [row["learning_rate"] for row in rows])
++        axes.flat[3].set_ylabel("Learning rate")
++        axes.flat[3].set_yscale("log")
++        for name in rows[0]["losses"]:
++            axes.flat[4].plot(iterations, [row["losses"][name] for row in rows], label=name)
++        axes.flat[4].set_ylabel("Native PPO losses / entropy")
++        axes.flat[4].set_yscale("symlog", linthresh=0.01)
++        axes.flat[4].legend()
++        axes.flat[5].plot(
++            iterations, [samples / (row["collect_seconds"] + row["learn_seconds"]) for row in rows]
++        )
++        axes.flat[5].set_ylabel("Transitions / second")
++        for axis in axes.flat:
++            axis.set_xlabel("Completed iteration (zero based)")
++        fig.suptitle(
++            f"Synchronous PPO · {len(rows):,} iterations · {samples:,} transitions/iteration"
++        )
++        try:
++            fig.savefig(output_dir / "curves.png", dpi=160)
++            fig.savefig(output_dir / "curves.pdf")
++        finally:
++            plt.close(fig)
++
++
++def report(
++    run_dir: str | Path,
++    output_dir: str | Path,
++    *,
++    expected_iterations: int = 10000,
++    num_envs: int = 1024,
++    final_checkpoint: str | Path | None = None,
++) -> dict:
++    """Audit, then write JSON and standalone curves into a fresh output directory."""
++    run_path, output_path = Path(run_dir).resolve(), Path(output_dir).resolve()
++    _require(
++        output_path != run_path and output_path not in run_path.parents,
++        "report output must be separate from the run directory",
++    )
++    _require(
++        not output_path.exists() or (output_path.is_dir() and not any(output_path.iterdir())),
++        "report output directory must be empty",
++    )
++    result, rows = _read_audited(run_path, expected_iterations, num_envs, final_checkpoint)
++    output_path.mkdir(parents=True, exist_ok=True)
++    _plot(rows, output_path, result["transitions_per_iteration"])
++    (output_path / "audit.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
++    return result
+diff --git a/tests/algos/test_multi_source_ppo.py b/tests/algos/test_multi_source_ppo.py
+new file mode 100644
+index 0000000..5612749
+--- /dev/null
++++ b/tests/algos/test_multi_source_ppo.py
+@@ -0,0 +1,280 @@
++from dataclasses import replace
++
++import pytest
++import torch
++from examples import unidr_fake
++
++from uni_rl.algos.multi_source_ppo import prepare_ppo_window
++
++
++def snapshot(source):
++    raw = source.raw
++    tensors = [
++        *raw.observations.values(),
++        *(getattr(raw, key) for key in "actions rewards values actions_log_prob dones".split()),
++        *raw.distribution_params,
++        *(getattr(source, key) for key in "env_ids episode_ids terminated truncated".split()),
++        *source.final_observations.values(),
++        *source.last_observations.values(),
++        source.bootstrap_values,
++    ]
++    return [value.clone() for value in tensors]
++
++
++@pytest.mark.parametrize("steps", [(24, 24, 24, 24), (25, 24, 24, 23)])
++def test_real_ppo_update_uses_every_sample_and_preserves_raw_window(steps, monkeypatch):
++    ppo = unidr_fake.make_ppo(normalize=True)
++    norm_before = [
++        {key: value.clone() for key, value in model.obs_normalizer.state_dict().items()}
++        for model in (ppo.actor, ppo.critic)
++    ]
++    assert all(state and any(bool(t.any()) for t in state.values()) for state in norm_before)
++    spec, sources = unidr_fake.fake_window(ppo, steps=steps)
++    originals = [snapshot(source) for source in sources]
++    metadata = [(s.source_id, s.segment_id, s.stamp) for s in sources]
++    storage = prepare_ppo_window(ppo, sources, spec)
++    assert storage.num_envs == spec.transitions == 192
++    assert storage.num_transitions_per_env == 1
++    expected = storage.returns - storage.values
++    torch.testing.assert_close(
++        storage.advantages, (expected - expected.mean()) / (expected.std() + 1e-8)
++    )
++    seen, optimizer_steps = [], []
++    original_generator = storage.mini_batch_generator
++
++    def batches(*args, **kwargs):
++        for batch in original_generator(*args, **kwargs):
++            seen.append(batch.observations["critic"].clone())
++            yield batch
++
++    monkeypatch.setattr(storage, "mini_batch_generator", batches)
++    before = [[p.detach().clone() for p in model.parameters()] for model in (ppo.actor, ppo.critic)]
++    handle = ppo.optimizer.register_step_post_hook(lambda *_: optimizer_steps.append(1))
++    ppo.storage = storage
++    try:
++        losses = ppo.update()
++    finally:
++        handle.remove()
++    assert len(optimizer_steps) == len(seen) == 20
++    expected_rows = {tuple(row) for row in storage.observations["critic"][0].tolist()}
++    assert len(expected_rows) == 192
++    for epoch in range(5):
++        rows = torch.cat(seen[epoch * 4 : (epoch + 1) * 4]).tolist()
++        assert len(rows) == 192 and {tuple(row) for row in rows} == expected_rows
++    for model, previous, norm in zip((ppo.actor, ppo.critic), before, norm_before, strict=True):
++        assert any(
++            not torch.equal(old, new) for old, new in zip(previous, model.parameters(), strict=True)
++        )
++        for key, value in norm.items():
++            assert torch.equal(value, model.obs_normalizer.state_dict()[key])
++        assert not model.training and not model.obs_normalizer.training
++    assert all(torch.isfinite(torch.tensor(value)) for value in losses.values())
++    for source, original, ids in zip(sources, originals, metadata, strict=True):
++        assert (source.source_id, source.segment_id, source.stamp) == ids
++        assert all(
++            torch.equal(old, new) for old, new in zip(original, snapshot(source), strict=True)
++        )
++
++
++def test_gae_terminal_timeout_both_flags_and_window_tail(monkeypatch):
++    ppo = unidr_fake.make_ppo()
++    spec, sources = unidr_fake.fake_window(ppo)
++    ppo.gamma, ppo.lam = 0.9, 0.8
++    monkeypatch.setattr(
++        ppo.critic, "forward", lambda obs, **_: torch.full((*obs.batch_size, 1), 2.0)
++    )
++    for source in sources:
++        source.raw.rewards.fill_(1)
++        source.raw.values.fill_(2)
++        source.terminated.fill_(True)
++        source.truncated.zero_()
++        source.bootstrap_values.zero_()
++    source = sources[0]
++    source.raw.rewards[:4, 0, 0] = torch.tensor([1.0, 2.0, 3.0, 4.0])
++    source.terminated[:2, 0] = False
++    source.truncated[1, 0] = source.truncated[3, 0] = True
++    source.bootstrap_values[0, 0, 0] = 2
++    source.bootstrap_values[1, 0, 0] = 5
++    source.terminated[-1, 1] = False
++    source.bootstrap_values[-1, 1, 0] = 2
++    for source in sources:
++        done = source.terminated | source.truncated
++        source.raw.dones.copy_(done.unsqueeze(-1))
++        source.episode_ids.zero_()
++        source.episode_ids[1:] = done[:-1].long().cumsum(0)
++    merged = prepare_ppo_window(ppo, sources, spec)
++    returns = merged.returns[0, :48, 0].reshape(24, 2)
++    torch.testing.assert_close(returns[:4, 0], torch.tensor([6.04, 6.5, 3.0, 4.0]))
++    torch.testing.assert_close(returns[-1, 1], torch.tensor(2.8))
++    assert torch.equal(merged.returns[0, 48:, 0], torch.ones(144))
++    original = merged.returns[0].clone()
++    sources[0].raw.rewards.add_(100)
++    changed = prepare_ppo_window(ppo, sources, spec).returns[0]
++    assert torch.equal(original[48:], changed[48:])
++    assert not torch.equal(original[:48], changed[:48])
++    reversed_returns = prepare_ppo_window(ppo, sources[::-1], spec).returns[0]
++    assert torch.equal(reversed_returns.reshape(4, 48, 1).flip(0).flatten(0, 1), changed)
++
++
++def test_collection_uses_final_observation_for_timeout_bootstrap():
++    ppo = unidr_fake.make_ppo()
++    spec, sources = unidr_fake.fake_window(ppo)
++    for source in sources:
++        assert source.stamp == spec.stamp
++        assert source.terminated.any() and source.truncated.any()
++        assert bool((source.bootstrap_values[source.terminated] == 0).all())
++        timeout = source.truncated & ~source.terminated
++        with torch.no_grad():
++            expected = ppo.critic(source.final_observations[timeout])
++            reset_values = ppo.critic(source.raw.observations[1:][timeout[:-1]])
++            ppo.actor(source.raw.observations.flatten(0, 1), stochastic_output=True)
++            log_prob = ppo.actor.get_output_log_prob(source.raw.actions.flatten(0, 1))
++        torch.testing.assert_close(source.raw.actions_log_prob.flatten(), log_prob)
++        torch.testing.assert_close(source.bootstrap_values[timeout], expected)
++        assert not torch.allclose(source.bootstrap_values[:-1][timeout[:-1]], reset_values)
++        assert torch.equal(
++            source.episode_ids[1:] - source.episode_ids[:-1], source.raw.dones[:-1, :, 0].long()
++        )
++
++
++@pytest.mark.parametrize(
++    "bad",
++    "policy normalizer window duplicate under over total final nan groups shape episode bootstrap distribution".split(),
++)
++def test_malformed_window_rejected_before_gae(bad, monkeypatch):
++    ppo = unidr_fake.make_ppo()
++    spec, sources = unidr_fake.fake_window(ppo)
++    source = sources[0]
++    if bad in ("window", "policy", "normalizer"):
++        field = "window_id" if bad == "window" else f"{bad}_version"
++        spec = replace(spec, **{field: 1})  # Collected version zero is now stale.
++    elif bad == "duplicate":
++        sources[1] = source
++    elif bad == "under":
++        sources.pop()
++    elif bad == "over":
++        sources.append(replace(source, segment_id=1))
++    elif bad == "total":
++        spec = replace(spec, transitions=spec.transitions + 1)
++    elif bad == "final":
++        sources[0] = replace(source, final_observations=None)
++    elif bad == "nan":
++        source.raw.rewards[0, 0] = float("nan")
++    elif bad == "groups":
++        del source.raw.observations["critic"]
++    elif bad == "shape":
++        source.raw.observations["critic"] = source.raw.observations["critic"][..., :1]
++    elif bad == "episode":
++        source.episode_ids[1, 0] += 10
++    elif bad == "bootstrap":
++        source.bootstrap_values[source.terminated] = 1
++    else:
++        source.raw.distribution_params[1].zero_()
++    original = ppo.storage
++    monkeypatch.setattr(
++        ppo, "compute_returns", lambda *_: pytest.fail("invalid window reached GAE")
++    )
++    with pytest.raises(ValueError):
++        prepare_ppo_window(ppo, sources, spec)
++    assert ppo.storage is original and not ppo.normalize_advantage_per_mini_batch
++
++
++@pytest.mark.parametrize(
++    "path,value",
++    [
++        ("actor.is_recurrent", True),
++        ("actor.training", True),
++        ("critic.obs_normalizer.training", True),
++        ("num_learning_epochs", 4),
++        ("num_mini_batches", 3),
++        ("schedule", "adaptive"),
++        ("normalize_advantage_per_mini_batch", True),
++        ("enable_compile", True),
++    ],
++)
++def test_unsupported_ppo_configuration_rejected(path, value, monkeypatch):
++    ppo = unidr_fake.make_ppo()
++    spec, sources = unidr_fake.fake_window(ppo)
++    *parents, attr = path.split(".")
++    target = ppo
++    for parent in parents:
++        target = getattr(target, parent)
++    monkeypatch.setattr(target, attr, value)
++    with pytest.raises(ValueError):
++        prepare_ppo_window(ppo, sources, spec)
++
++
++def test_gae_failure_restores_learner_storage(monkeypatch):
++    ppo = unidr_fake.make_ppo()
++    spec, sources = unidr_fake.fake_window(ppo)
++    original = ppo.storage
++
++    def fail(*_):
++        raise RuntimeError("GAE failure")
++
++    monkeypatch.setattr(ppo, "compute_returns", fail)
++    with pytest.raises(RuntimeError, match="GAE failure"):
++        prepare_ppo_window(ppo, sources, spec)
++    assert ppo.storage is original and not ppo.normalize_advantage_per_mini_batch
++
++
++@pytest.mark.parametrize("where", ["step", "constructor"])
++def test_fake_failure_closes_every_created_source(where, monkeypatch):
++    created, closed = [], []
++    original_init = unidr_fake.FakeSource.__init__
++    original_close = unidr_fake.FakeSource.close
++
++    def init(self, *args, **kwargs):
++        if where == "constructor" and len(created) == 2:
++            raise RuntimeError("injected failure")
++        original_init(self, *args, **kwargs)
++        created.append(self)
++
++    def close(self):
++        closed.append(self)
++        original_close(self)
++
++    def fail(*_):
++        raise RuntimeError("injected failure")
++
++    monkeypatch.setattr(unidr_fake.FakeSource, "__init__", init)
++    monkeypatch.setattr(unidr_fake.FakeSource, "close", close)
++    if where == "step":
++        monkeypatch.setattr(unidr_fake.FakeSource, "step", fail)
++    with pytest.raises(RuntimeError, match="injected failure"):
++        unidr_fake.fake_window(unidr_fake.make_ppo())
++    assert created and len(closed) == len(created) and set(closed) == set(created)
++
++
++def test_fake_sources_are_deterministic():
++    _, first = unidr_fake.fake_window(unidr_fake.make_ppo(seed=17))
++    _, second = unidr_fake.fake_window(unidr_fake.make_ppo(seed=17))
++    for left, right in zip(first, second, strict=True):
++        assert all(torch.equal(a, b) for a, b in zip(snapshot(left), snapshot(right), strict=True))
++
++
++@pytest.mark.parametrize(
++    "bad", "groups shape obs_nan final final_groups terminated truncated reward".split()
++)
++def test_invalid_env_output_rejected_before_storage_conversion(bad, monkeypatch):
++    original = unidr_fake.FakeSource.step
++
++    def step(self, actions):
++        state = original(self, actions)
++        if bad == "groups":
++            state.obs["extra"] = state.obs["obs"]
++        elif bad == "shape":
++            state.obs["obs"] = state.obs["obs"][:, :1]
++        elif bad == "obs_nan":
++            state.obs["obs"][0, 0] = float("nan")
++        elif bad == "final":
++            state.final_observation = None
++        elif bad == "final_groups":
++            del state.final_observation["critic"]
++        else:
++            setattr(state, bad, getattr(state, bad).astype("float32") + float("nan"))
++        return state
++
++    monkeypatch.setattr(unidr_fake.FakeSource, "step", step)
++    with pytest.raises(ValueError):
++        unidr_fake.fake_window(unidr_fake.make_ppo())
+diff --git a/tests/algos/test_rsl_rl_ppo.py b/tests/algos/test_rsl_rl_ppo.py
+index 9011f6d..d217671 100644
+--- a/tests/algos/test_rsl_rl_ppo.py
++++ b/tests/algos/test_rsl_rl_ppo.py
+@@ -6,7 +6,9 @@ from typing import Any
+ 
+ import pytest
+ import torch
++from examples.unidr_fake import FakeSource, make_ppo
+ from omegaconf import OmegaConf
++from rsl_rl.storage import RolloutStorage
+ from tensordict import TensorDict
+ 
+ from uni_rl.algos.rsl_rl import (
+@@ -19,6 +21,7 @@ from uni_rl.algos.rsl_rl import (
+     rsl_rl_single_process_topology,
+ )
+ from uni_rl.algos.rsl_rl_ppo import FinalObservationAwarePPO
++from uni_rl.algos.synchronous_ppo import CentralVecEnv
+ 
+ 
+ def test_rsl_rl_rank_seed_uses_base_seed_plus_global_rank() -> None:
+@@ -275,3 +278,54 @@ def test_rsl_rl_adapter_outputs_combined_dones_and_time_outs_alias():
+ 
+     assert torch.equal(dones, torch.tensor([True, True, False]))
+     assert torch.equal(infos["time_outs"], torch.tensor([False, True, False]))
++
++
++@pytest.mark.parametrize("wrapper_cls", [RslRlVecEnvWrapper, CentralVecEnv])
++@pytest.mark.parametrize(
++    "pure_timeout,include_final", [(False, False), (False, True), (True, True)]
++)
++def test_ppo_termination_precedence_and_final_value_bootstrap(
++    wrapper_cls, pure_timeout, include_final
++):
++    class BoundaryEnv(FakeSource):
++        def step(self, actions):
++            state = super().step(actions)
++            # Rows are true termination, optional pure timeout, both flags, ongoing.
++            state.terminated[:] = [True, not pure_timeout, True, False]
++            state.truncated[:] = [False, pure_timeout, True, False]
++            state.reward[:] = [1, 2, 3, 4]
++            state.obs = {key: value * 0 + 7 for key, value in state.obs.items()}
++            state.final_observation = (
++                {key: value * 0 + 3 for key, value in state.obs.items()} if include_final else None
++            )
++            return state
++
++    env = wrapper_cls(BoundaryEnv(0, 4), policy_obs_mode="actor")
++    ppo = make_ppo()
++    # The fixture actor consumes the original "obs" key retained by central envs.
++    ppo.actor.obs_groups = ["actor"]
++    ppo.storage = RolloutStorage("rl", 4, 1, env.get_observations(), [2])
++    try:
++        with torch.no_grad():
++            actions = ppo.act(env.get_observations())
++            obs, rewards, dones, extras = env.step(actions)
++            expected_timeouts = torch.tensor([False, pure_timeout, False, False])
++            assert torch.equal(extras["time_outs"], expected_timeouts)
++            assert torch.equal(dones, torch.tensor([True, True, True, False]))
++            assert env.env.state.terminated[2] and env.env.state.truncated[2]
++            expected = rewards.clone()
++            tail_values = ppo.critic(obs).squeeze(-1)
++            if pure_timeout:
++                final_values = ppo.critic(extras["time_out_bootstrap_obs"]).squeeze(-1)
++                assert not torch.isclose(final_values[1], tail_values[1])
++                expected[1] += ppo.gamma * final_values[1]
++            else:
++                assert "time_out_bootstrap_obs" not in extras
++            ppo.process_env_step(obs, rewards, dones, extras)
++            torch.testing.assert_close(ppo.storage.rewards[0, :, 0], expected)
++            ppo.compute_returns(obs)
++            expected[3] += ppo.gamma * tail_values[3]
++            torch.testing.assert_close(ppo.storage.returns[0, :, 0], expected)
++    finally:
++        env.close()
++    assert env.env.closed
+diff --git a/tests/algos/test_synchronous_ppo.py b/tests/algos/test_synchronous_ppo.py
+new file mode 100644
+index 0000000..d887a39
+--- /dev/null
++++ b/tests/algos/test_synchronous_ppo.py
+@@ -0,0 +1,331 @@
++"""Compare the central collector against the installed native PPO step order."""
++
++from copy import deepcopy
++from dataclasses import replace
++
++import numpy as np
++import pytest
++import torch
++from examples.unidr_fake import FakeSource, FakeState, make_ppo
++from rsl_rl.storage import RolloutStorage
++from tensordict import TensorDict
++
++from uni_rl.algos.synchronous_ppo import CentralCollector, CentralVecEnv
++from uni_rl.ipc.synchronous_env import SourceSpec, SynchronousEnv
++
++
++class SerialReference(FakeSource):
++    """Independent serial vector environment used only as a test oracle."""
++
++    def __init__(self):
++        super().__init__(0, 8)
++        self.children = [FakeSource(i, 2) for i in range(4)]
++        self.source_slices = {f"source{i}": slice(2 * i, 2 * i + 2) for i in range(4)}
++        self.fault = None
++
++    def merge(self, states):
++        def merge_obs(name):
++            return {
++                key: np.concatenate([getattr(s, name)[key] for s in states])
++                for key in states[0].obs
++            }
++
++        self.state = FakeState(
++            merge_obs("obs"),
++            np.concatenate([s.reward for s in states]),
++            np.concatenate([s.terminated for s in states]),
++            np.concatenate([s.truncated for s in states]),
++            merge_obs("final_observation") if states[0].final_observation is not None else None,
++        )
++        return self.state
++
++    def init_state(self):
++        return self.merge([child.init_state() for child in self.children])
++
++    def reset(self, env_indices):
++        for child in self.children:
++            child.reset(np.arange(2))
++            child.init_state()
++        self.init_state()
++        return self.state.obs, {}
++
++    def step(self, actions):
++        state = self.merge(
++            [child.step(actions[2 * i : 2 * i + 2]) for i, child in enumerate(self.children)]
++        )
++        # Exercise dual flags on some genuinely terminal transitions.
++        state.truncated[0] |= state.terminated[0]
++        if self.fault == "missing":
++            state.final_observation = None
++        elif self.fault == "nan":
++            state.reward[0] = np.nan
++        return state
++
++    def close(self):
++        for child in self.children:
++            child.close()
++        super().close()
++
++
++def setup():
++    torch.set_num_threads(1)
++    env = CentralVecEnv(SerialReference())
++    ppo = make_ppo(normalize=True)
++    ppo.schedule = "adaptive"
++    ppo.storage = RolloutStorage("rl", 8, 24, env.get_observations(), [2])
++    return ppo, env, CentralCollector(ppo, env, env.env.source_slices)
++
++
++def norm_state(ppo):
++    return [deepcopy(m.obs_normalizer.state_dict()) for m in (ppo.actor, ppo.critic)]
++
++
++def assert_norm_equal(a, b):
++    for x, y in zip(a, b):
++        for key in x:
++            torch.testing.assert_close(x[key], y[key], rtol=0, atol=0)
++
++
++def test_stepwise_native_oracle_and_real_adaptive_update():
++    ppo, env, collector = setup()
++    reference = deepcopy(ppo)
++    ref_env = CentralVecEnv(SerialReference())
++    observed = []
++    rng = torch.get_rng_state()
++    window = collector.collect(0, 0, 0, lambda *_: observed.append(norm_state(ppo)))
++    actual = window.prepare(ppo)
++    torch.set_rng_state(rng)
++    reference.train_mode()
++    obs = ref_env.get_observations()
++    with torch.no_grad():
++        for step in range(24):
++            actions = reference.act(obs)
++            obs, rewards, dones, extras = ref_env.step(actions)
++            reference.process_env_step(obs, rewards, dones, extras)
++            assert_norm_equal(observed[step], norm_state(reference))
++        reference.eval_mode()
++        reference.compute_returns(obs)
++    # The oracle runs native [T,N] GAE, then orders samples source/time/env.
++    st = reference.storage
++    expected = RolloutStorage("rl", 192, 1, actual.observations[0], [2])
++    for field in (
++        "observations",
++        "actions",
++        "rewards",
++        "values",
++        "actions_log_prob",
++        "returns",
++        "advantages",
++        "dones",
++    ):
++        value = getattr(st, field)
++        ordered = torch.cat(
++            [value[:, part].flatten(0, 1) for part in ref_env.env.source_slices.values()]
++        )
++        getattr(expected, field)[0].copy_(ordered)
++        torch.testing.assert_close(
++            getattr(actual, field), getattr(expected, field), rtol=2e-5, atol=2e-6
++        )
++    expected.distribution_params = tuple(
++        torch.cat([value[:, part].flatten(0, 1) for part in ref_env.env.source_slices.values()])[
++            None
++        ]
++        for value in st.distribution_params
++    )
++    expected.step = 1
++    assert window.spec.transitions == 192
++    assert list(window.spec.quotas.values()) == [48] * 4
++    assert torch.equal(window.normalizer_versions, torch.arange(24))
++    for source in window.sources:
++        assert (source.bootstrap_values[source.terminated] == 0).all()
++        assert torch.equal(
++            source.episode_ids[1:] - source.episode_ids[:-1],
++            (source.terminated | source.truncated)[:-1].long(),
++        )
++        assert "obs" in source.raw.observations  # Original dictionary survives the adapter.
++        corrected = (
++            source.raw.rewards
++            + ppo.gamma
++            * source.bootstrap_values
++            * (source.truncated & ~source.terminated)[..., None]
++        )
++        name = source.source_id
++        torch.testing.assert_close(corrected, st.rewards[:, ref_env.env.source_slices[name]])
++    ppo.storage, reference.storage = actual, expected
++    before = [
++        torch.nn.utils.parameters_to_vector(m.parameters()).detach().clone()
++        for m in (ppo.actor, ppo.critic)
++    ]
++    norm_before = norm_state(ppo)
++    update_rng = torch.get_rng_state()
++    losses = ppo.update()
++    torch.set_rng_state(update_rng)
++    ref_losses = reference.update()
++    assert losses == pytest.approx(ref_losses, rel=1e-4, abs=1e-6)
++    assert ppo.learning_rate == reference.learning_rate
++    for old, model, ref in zip(
++        before, (ppo.actor, ppo.critic), (reference.actor, reference.critic)
++    ):
++        assert not torch.equal(old, torch.nn.utils.parameters_to_vector(model.parameters()))
++        for value, ref_value in zip(model.parameters(), ref.parameters()):
++            torch.testing.assert_close(value, ref_value, rtol=1e-4, atol=1e-6)
++    assert {int(state["step"]) for state in ppo.optimizer.state.values()} == {20}
++    assert_norm_equal(norm_before, norm_state(ppo))
++    assert all(int(m.obs_normalizer.count) == 194 for m in (ppo.actor, ppo.critic))
++
++
++def test_every_epoch_uses_every_sample(monkeypatch):
++    ppo, _, collector = setup()
++    window = collector.collect(0, 0, 0)
++    ppo.storage = window.prepare(ppo)
++    generator = ppo.storage.mini_batch_generator
++    epochs = [[] for _ in range(5)]
++    # Record exact per-sample IDs through an unused observation group.
++    ppo.storage.observations["sample_id"] = torch.arange(192).reshape(1, 192, 1).float()
++
++    def audited(*args):
++        for index, batch in enumerate(generator(*args)):
++            epochs[index // 4].extend(batch.observations["sample_id"].flatten().tolist())
++            yield batch
++
++    monkeypatch.setattr(ppo.storage, "mini_batch_generator", audited)
++    ppo.update()
++    assert all(sorted(epoch) == list(range(192)) for epoch in epochs)
++
++
++@pytest.mark.parametrize("fault", ["missing", "nan"])
++def test_failed_window_closes_all_sources(fault):
++    _, env, collector = setup()
++    env.env.fault = fault
++    with pytest.raises((ValueError, RuntimeError)):
++        collector.collect(0, 0, 0)
++    assert collector.failed and env.env.closed
++    assert all(child.closed for child in env.env.children)
++    with pytest.raises(ValueError, match="failed collector"):
++        collector.collect(0, 0, 0)
++
++
++def test_versions_and_episode_continuity_across_windows():
++    ppo, _, collector = setup()
++    first = collector.collect(0, 0, 0)
++    ppo.storage = first.prepare(ppo)
++    ppo.update()
++    previous = collector.episode_ids.clone()
++    with pytest.raises(ValueError, match="version"):
++        collector.collect(0, 0, 0)
++    second = collector.collect(1, 1, 24)
++    assert torch.equal(torch.cat([s.episode_ids[0] for s in second.sources]), previous)
++    with pytest.raises(ValueError, match="normalizer versions"):
++        replace(second, normalizer_versions=second.normalizer_versions + 1).prepare(ppo)
++    sources = (replace(second.sources[0], stamp=(0, 0, 0)), *second.sources[1:])
++    with pytest.raises(ValueError, match="version mismatch"):
++        replace(second, sources=sources).prepare(ppo)
++
++
++def test_normalizer_integer_count_above_float32_limit():
++    ppo, _, collector = setup()
++    for model in (ppo.actor, ppo.critic):
++        model.obs_normalizer.count.fill_(2**24 + 1)
++    window = collector.collect(0, 0, 0)
++    window.prepare(ppo)
++    for model in (ppo.actor, ppo.critic):
++        assert model.obs_normalizer.count.dtype == torch.int64
++        assert int(model.obs_normalizer.count) == 2**24 + 1 + 192
++
++
++def fake_factory(num_envs, override):
++    return FakeSource(override["index"], num_envs)
++
++
++def test_four_spawn_services_drive_one_real_ppo():
++    services = SynchronousEnv(
++        [SourceSpec(f"source{i}", fake_factory, 2, {"index": i}) for i in range(4)]
++    )
++    try:
++        wrapped = CentralVecEnv(services)
++        ppo = make_ppo(normalize=True)
++        ppo.schedule = "adaptive"
++        ppo.storage = RolloutStorage("rl", 8, 24, wrapped.get_observations(), [2])
++        window = CentralCollector(ppo, wrapped, services.source_slices).collect(0, 0, 0)
++        ppo.storage = window.prepare(ppo)
++        ppo.update()
++        assert {int(state["step"]) for state in ppo.optimizer.state.values()} == {20}
++        assert all(source.raw.step == 24 for source in window.sources)
++    finally:
++        services.close()
++
++
++def test_rejects_changed_learner_before_gae():
++    ppo, _, collector = setup()
++    window = collector.collect(0, 0, 0)
++    with torch.no_grad():
++        next(ppo.critic.parameters()).add_(1)
++    with pytest.raises(ValueError, match="learner state changed"):
++        window.prepare(ppo)
++
++
++def test_raw_rollout_survives_cross_window_environment_buffer_reuse(monkeypatch):
++    ppo, env, collector = setup()
++    initial = env.env.state.obs["obs"].copy()
++    step = env.env.step
++
++    def reuse(actions):
++        previous = env.env.state.obs
++        state = step(actions)
++        for key, value in state.obs.items():
++            previous[key][:] = value
++        state.obs = previous
++        return state
++
++    monkeypatch.setattr(env.env, "step", reuse)
++    window = collector.collect(0, 0, 0)
++    actual = torch.cat([source.raw.observations["obs"][0] for source in window.sources])
++    np.testing.assert_array_equal(actual.numpy(), initial)
++    before = deepcopy(window.sources)
++    ppo.storage = window.prepare(ppo)
++    ppo.update()
++    collector.collect(1, 1, 24)
++    for source, saved in zip(window.sources, before):
++        for field in ("env_ids", "episode_ids", "terminated", "truncated", "bootstrap_values"):
++            torch.testing.assert_close(
++                getattr(source, field), getattr(saved, field), rtol=0, atol=0
++            )
++        for field in ("last_observations", "final_observations"):
++            for key in getattr(saved, field).keys():
++                torch.testing.assert_close(
++                    getattr(source, field)[key], getattr(saved, field)[key], rtol=0, atol=0
++                )
++        for key in saved.raw.observations.keys():
++            torch.testing.assert_close(
++                source.raw.observations[key], saved.raw.observations[key], rtol=0, atol=0
++            )
++        for field in (
++            "actions",
++            "rewards",
++            "dones",
++            "values",
++            "actions_log_prob",
++            "returns",
++            "advantages",
++        ):
++            torch.testing.assert_close(
++                getattr(source.raw, field), getattr(saved.raw, field), rtol=0, atol=0
++            )
++        for value, original in zip(source.raw.distribution_params, saved.raw.distribution_params):
++            torch.testing.assert_close(value, original, rtol=0, atol=0)
++
++
++def test_normalizer_overflow_aborts_before_update(monkeypatch):
++    ppo, env, collector = setup()
++    step = env.env.step
++
++    def overflow(actions):
++        state = step(actions)
++        for value in state.obs.values():
++            value[::2, 0], value[1::2, 0] = 1e20, -1e20
++        return state
++
++    monkeypatch.setattr(env.env, "step", overflow)
++    with pytest.raises(ValueError, match="non-finite normalizer"):
++        collector.collect(0, 0, 0)
++    assert not ppo.optimizer.state and env.env.closed
+diff --git a/tests/algos/test_synchronous_runner.py b/tests/algos/test_synchronous_runner.py
+new file mode 100644
+index 0000000..5f02bb1
+--- /dev/null
++++ b/tests/algos/test_synchronous_runner.py
+@@ -0,0 +1,226 @@
++"""Real native PPO lifecycle, recovery boundaries, and checkpoint validation."""
++
++import json
++import os
++import random
++
++import numpy as np
++import pytest
++import torch
++from examples.unidr_fake import FakeSource
++
++from uni_rl.algos.synchronous_ppo import CentralVecEnv
++from uni_rl.algos.synchronous_runner import SynchronousPPORunner
++
++
++def make_runner(directory, digest="test-config-and-assets"):
++    torch.set_num_threads(1)
++    source = FakeSource(0, 8)
++    source.source_slices = {f"source{i}": slice(2 * i, 2 * i + 2) for i in range(4)}
++    model = {"class_name": "rsl_rl.models.MLPModel", "hidden_dims": [8], "obs_normalization": True}
++    cfg = {
++        "num_steps_per_env": 24,
++        "save_interval": 500,
++        "obs_groups": {"actor": ["actor"], "critic": ["critic"]},
++        "actor": {
++            **model,
++            "distribution_cfg": {
++                "class_name": "rsl_rl.modules.GaussianDistribution",
++                "init_std": 0.5,
++            },
++        },
++        "critic": dict(model),
++        "algorithm": {
++            "class_name": "uni_rl.algos.rsl_rl_ppo.FinalObservationAwarePPO",
++            "schedule": "adaptive",
++            "desired_kl": 0.01,
++            "rnd_cfg": None,
++        },
++    }
++    return SynchronousPPORunner(CentralVecEnv(source), cfg, str(directory), manifest_digest=digest)
++
++
++def test_native_budget_checkpoint_and_resume(tmp_path):
++    runner = make_runner(tmp_path / "first")
++    runner.learn(2)
++    assert runner.env.env.closed
++    assert runner.next_iteration == runner.policy_version == 2
++    assert runner.normalizer_version == 48 and runner.optimizer_steps == 40
++    assert runner.total_transitions == 384
++    assert runner.last_metrics["epoch_samples"] == [192] * 5
++    records = [
++        json.loads(line)
++        for line in (tmp_path / "first/synchronous_metrics.jsonl").read_text().splitlines()
++    ]
++    assert [record["iteration"] for record in records] == [0, 1]
++    assert list(records[-1]["sources"]) == [f"source{i}" for i in range(4)]
++    assert sorted(path.name for path in (tmp_path / "first").glob("*.pt")) == [
++        "model_0.pt",
++        "model_1.pt",
++    ]
++    checkpoint = tmp_path / "first/model_1.pt"
++    saved = torch.load(checkpoint, weights_only=False)
++    assert saved["iter"] == 1 and saved["synchronous"]["complete"]
++    rng = saved["synchronous"]["rng"]
++    torch.set_rng_state(rng["torch"])
++    random.setstate(rng["python"])
++    np.random.set_state(rng["numpy"])
++    expected_rng = (torch.rand(3), random.random(), np.random.rand())
++    resumed = make_runner(tmp_path / "resumed")
++    resumed.load(str(checkpoint))
++    assert resumed.next_iteration == 2 and resumed.generation == 1
++    assert not resumed.collector.episode_ids.any()
++    torch.testing.assert_close(torch.rand(3), expected_rng[0], rtol=0, atol=0)
++    assert (random.random(), np.random.rand()) == expected_rng[1:]
++    assert resumed.alg.learning_rate == saved["synchronous"]["learning_rate"]
++    for model, key in (
++        (resumed.alg.actor, "actor_state_dict"),
++        (resumed.alg.critic, "critic_state_dict"),
++    ):
++        for name, value in model.state_dict().items():
++            torch.testing.assert_close(value, saved[key][name], rtol=0, atol=0)
++    resumed.learn(1)
++    assert resumed.next_iteration == 3 and resumed.optimizer_steps == 60
++    assert resumed.normalizer_version == 72 and resumed.total_transitions == 576
++    assert resumed.latest_window.spec.stamp == (2, 2, 48)
++    assert resumed.latest_window.generation == 1
++    assert resumed.env.env.closed
++    assert (tmp_path / "resumed/model_2.pt").exists()
++
++
++@pytest.mark.parametrize(
++    "corruption",
++    [
++        "fingerprint",
++        "counter",
++        "partial",
++        "optimizer",
++        "duplicate_parameters",
++        "normalizer",
++        "truncated",
++        "missing_count",
++        "nonfinite",
++        "moment",
++        "source_order",
++    ],
++)
++def test_resume_rejects_incompatible_or_partial_state(tmp_path, corruption):
++    runner = make_runner(tmp_path / "first")
++    runner.learn(1)
++    checkpoint = tmp_path / "first/model_0.pt"
++    saved = torch.load(checkpoint, weights_only=False)
++    if corruption == "fingerprint":
++        saved["synchronous"]["contract"]["manifest_digest"] = "other-assets"
++    elif corruption == "counter":
++        saved["synchronous"]["next_iteration"] = 0
++    elif corruption == "partial":
++        saved["synchronous"]["complete"] = False
++    elif corruption == "optimizer":
++        next(iter(saved["optimizer_state_dict"]["state"].values()))["step"] -= 1
++    elif corruption == "duplicate_parameters":
++        optimizer = saved["optimizer_state_dict"]
++        ids, states = optimizer["param_groups"][0]["params"], optimizer["state"]
++        duplicate, missing = next(
++            (a, b)
++            for a in ids
++            for b in ids
++            if a < b and states[a]["exp_avg"].shape == states[b]["exp_avg"].shape
++        )
++        ids[ids.index(missing)] = duplicate
++        states.pop(missing)
++    elif corruption == "normalizer":
++        saved["actor_state_dict"]["obs_normalizer.count"] -= 1
++    elif corruption == "missing_count":
++        saved["actor_state_dict"].pop("obs_normalizer.count")
++    elif corruption == "nonfinite":
++        saved["actor_state_dict"]["obs_normalizer._mean"].fill_(float("nan"))
++    elif corruption == "moment":
++        next(iter(saved["optimizer_state_dict"]["state"].values()))["exp_avg"].fill_(float("nan"))
++    elif corruption == "source_order":
++        saved["synchronous"]["contract"]["sources"].reverse()
++    torch.save(saved, checkpoint)
++    if corruption == "truncated":
++        checkpoint.write_bytes(checkpoint.read_bytes()[:200])
++    resumed = make_runner(tmp_path / "resumed")
++    with pytest.raises((ValueError, RuntimeError)):
++        resumed.load(str(checkpoint))
++    assert resumed.env.env.closed
++    assert not list((tmp_path / "resumed").glob("*.pt"))
++
++
++def test_failed_window_cannot_checkpoint_and_closes_writer(tmp_path, monkeypatch):
++    runner = make_runner(tmp_path)
++    with pytest.raises(RuntimeError, match="complete iteration"):
++        runner.save(str(tmp_path / "partial.pt"))
++
++    def save_mid_rollout(*_):
++        runner.save(str(tmp_path / "partial.pt"))
++
++    monkeypatch.setattr(runner, "_on_step", save_mid_rollout)
++    with pytest.raises(RuntimeError, match="complete iteration"):
++        runner.learn(1)
++    assert runner.env.env.closed and runner.collector.failed
++    assert runner.logger.writer.file_writer is None
++    assert not list(tmp_path.glob("*.pt"))
++
++
++def test_optimizer_failure_keeps_previous_complete_checkpoint(tmp_path):
++    runner = make_runner(tmp_path)
++
++    def fail_after_first_step_of_second_iteration(optimizer, *_):
++        if int(next(iter(optimizer.state.values()))["step"]) == 21:
++            raise RuntimeError("injected optimizer failure")
++
++    runner.alg.optimizer.register_step_post_hook(fail_after_first_step_of_second_iteration)
++    with pytest.raises(RuntimeError, match="injected optimizer failure"):
++        runner.learn(2)
++    assert runner.env.env.closed and runner.logger.writer.file_writer is None
++    with pytest.raises(RuntimeError, match="complete iteration"):
++        runner.save(str(tmp_path / "model_1.pt"))
++    assert [path.name for path in tmp_path.glob("*.pt")] == ["model_0.pt"]
++    saved = torch.load(tmp_path / "model_0.pt", weights_only=False)
++    assert saved["iter"] == 0 and saved["synchronous"]["optimizer_steps"] == 20
++
++
++def test_native_random_initial_episode_lengths_reach_environment(tmp_path, monkeypatch):
++    runner = make_runner(tmp_path)
++    initial_lengths = []
++    monkeypatch.setattr(
++        runner.env.env,
++        "set_episode_length_buf",
++        lambda values: initial_lengths.append(values.copy()),
++        raising=False,
++    )
++    runner.learn(1, init_at_random_ep_len=True)
++    assert len(initial_lengths) == 1 and initial_lengths[0].shape == (8,)
++    assert np.all((initial_lengths[0] >= 0) & (initial_lengths[0] < 50))
++
++
++def test_writer_initialization_failure_closes_created_writer(tmp_path, monkeypatch):
++    runner = make_runner(tmp_path)
++    initialize = runner.logger.init_logging_writer
++
++    def fail_after_initialize():
++        initialize()
++        raise RuntimeError("logging setup failure")
++
++    monkeypatch.setattr(runner.logger, "init_logging_writer", fail_after_initialize)
++    with pytest.raises(RuntimeError, match="logging setup failure"):
++        runner.learn(1)
++    assert runner.env.env.closed and runner.logger.writer.file_writer is None
++
++
++def test_failed_atomic_replace_preserves_previous_checkpoint(tmp_path, monkeypatch):
++    runner = make_runner(tmp_path)
++    runner.learn(1)
++    path = tmp_path / "model_0.pt"
++    previous = path.read_bytes()
++
++    def fail_replace(*_):
++        raise OSError("injected replace failure")
++
++    monkeypatch.setattr(os, "replace", fail_replace)
++    with pytest.raises(OSError, match="replace failure"):
++        runner.save(str(path))
++    assert path.read_bytes() == previous
++    assert not list(tmp_path.glob("*.tmp"))
+diff --git a/tests/ipc/test_synchronous_env.py b/tests/ipc/test_synchronous_env.py
+new file mode 100644
+index 0000000..87260c7
+--- /dev/null
++++ b/tests/ipc/test_synchronous_env.py
+@@ -0,0 +1,304 @@
++from __future__ import annotations
++
++import multiprocessing as mp
++import os
++import subprocess
++import sys
++import time
++from functools import partial
++from multiprocessing.shared_memory import SharedMemory
++from pathlib import Path
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++
++from uni_rl.env_contract import EnvProtocol
++from uni_rl.ipc import synchronous_env
++from uni_rl.ipc.synchronous_env import SourceSpec, SynchronousEnv
++
++
++class PhysicsEnv:
++    obs_groups_spec = {"obs": 2, "critic": 3}
++    observation_space = SimpleNamespace(shape=(2,))
++    action_space = SimpleNamespace(shape=(1,))
++    cfg = SimpleNamespace(max_episode_seconds=10.0, ctrl_dt=0.1)
++    play_capabilities = SimpleNamespace(supports_physics_state_playback=False)
++
++    def __init__(self, count, override, source=0):
++        self.num_envs, self.source = count, source
++        self.override = override or {}
++        self.mode = self.override.get("mode")
++        self.value = np.full(count, source, np.float32)
++        self.age = np.zeros(count, np.int64)
++        self.rng_sample = float(np.random.random())
++        self.binding = os.environ.get("SYNC_BINDING")
++        self.state = None
++        if self.override.get("shared_memory"):
++            self.shared_memory = SharedMemory(create=True, size=8)
++            Path(self.override["shared_memory"]).write_text(self.shared_memory.name)
++        if self.override.get("nested"):
++            self.nested = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
++            Path(self.override["pids"]).write_text(f"{os.getpid()} {self.nested.pid}")
++        if self.mode == "constructor":
++            raise RuntimeError("constructor failed")
++        if self.mode == "startup_hang":
++            time.sleep(60)
++        if self.mode == "metadata":
++            self.cfg = SimpleNamespace(max_episode_seconds=10.0, ctrl_dt=0.2)
++
++    def observations(self):
++        obs = np.column_stack((self.value, self.age)).astype(np.float32)
++        return {"obs": obs, "critic": np.column_stack((obs, self.value + 10)).astype(np.float32)}
++
++    def init_state(self):
++        self.state = SimpleNamespace(
++            obs=self.observations(),
++            reward=self.value.copy(),
++            terminated=np.zeros(self.num_envs, bool),
++            truncated=np.zeros(self.num_envs, bool),
++            final_observation=None,
++            info={
++                "pid": os.getpid(),
++                "binding": self.binding,
++                "rng": self.rng_sample,
++            },
++        )
++        if self.override.get("initial_done"):
++            self.state.terminated[:] = True
++        return self.state
++
++    def step(self, actions):
++        if self.override.get("barrier"):
++            barrier = Path(self.override["barrier"])
++            (barrier / str(self.source)).touch()
++            deadline = time.monotonic() + 3
++            while len(list(barrier.iterdir())) != 4:
++                if time.monotonic() > deadline:
++                    raise RuntimeError("not all sources received actions before waiting")
++                time.sleep(0.01)
++        if self.mode == "hang":
++            time.sleep(60)
++        if self.mode == "crash":
++            os._exit(7)
++        self.value += actions[:, 0]
++        self.age += 1
++        final = self.observations()
++        done = self.age >= 2
++        self.value[done] = self.source
++        state = self.init_state()
++        state.terminated = done.copy()
++        state.truncated = done.copy()
++        state.final_observation = final
++        if self.mode == "groups":
++            state.obs["extra"] = state.obs["obs"]
++        elif self.mode == "shape":
++            state.obs["obs"] = state.obs["obs"][:, :1]
++        elif self.mode == "dtype":
++            state.obs["obs"] = state.obs["obs"].astype(np.float64)
++        elif self.mode == "nan":
++            state.reward[0] = np.nan
++        elif self.mode == "flags":
++            state.terminated = done.astype(np.int8)
++        elif self.mode == "final":
++            state.terminated[:] = True
++            state.final_observation = None
++        return state
++
++    def reset(self, indices):
++        self.value[indices] = self.source
++        self.age[indices] = 0
++        return {k: v[indices] for k, v in self.observations().items()}, {"reset": indices.tolist()}
++
++    def set_episode_length_buf(self, values):
++        self.age[:] = values
++
++    def set_nan_guard(self, guard):
++        pass
++
++    def close(self):
++        time.sleep(self.override.get("close_delay", 0))
++        if self.override.get("shared_memory"):
++            self.shared_memory.close()
++            self.shared_memory.unlink()
++        if self.override.get("closed"):
++            Path(self.override["closed"]).write_text("closed")
++
++
++class FlatObservationEnv(PhysicsEnv):
++    obs_groups_spec = {"obs": 160, "critic": 286}
++    observation_space = SimpleNamespace(shape=(446,))
++
++    def observations(self):
++        return {
++            key: np.zeros((self.num_envs, dim), np.float32)
++            for key, dim in self.obs_groups_spec.items()
++        }
++
++
++def specs(count=4, **override):
++    return [
++        SourceSpec(str(i), partial(PhysicsEnv, source=i), i + 1, override, {"SYNC_BINDING": str(i)})
++        for i in range(count)
++    ]
++
++
++def alive(pid):
++    path = Path(f"/proc/{pid}/stat")
++    return path.exists() and path.read_text().split(")", 1)[1].split()[0] != "Z"
++
++
++def test_four_source_order_actions_reset_final_observations_and_seed():
++    with SynchronousEnv(specs(seed=17)) as env:
++        assert isinstance(env, EnvProtocol)
++        assert env.state is None and env.num_envs == 10
++        # The ordinary PPO wrapper calls reset before reading state.
++        obs, _ = env.reset(np.arange(10))
++        expected = np.repeat(np.arange(4), np.arange(1, 5)).astype(np.float32)
++        np.testing.assert_array_equal(obs["obs"][:, 0], expected)
++        state = env.init_state()
++        actions = np.arange(10, dtype=np.float32)[:, None]
++        state = env.step(actions)
++        pids = {value["pid"] for value in state.info["source_logs"].values()}
++        assert len(pids) == 4 and os.getpid() not in pids
++        assert [value["binding"] for value in state.info["source_logs"].values()] == list("0123")
++        assert len({value["rng"] for value in state.info["source_logs"].values()}) == 1
++        assert state.info["source_logs"]["0"]["rng"] == np.random.RandomState(17).random()
++        np.testing.assert_array_equal(state.obs["obs"][:, 0], expected + actions[:, 0])
++        state = env.step(actions)
++        assert state.terminated.all() and state.truncated.all()
++        np.testing.assert_array_equal(
++            state.final_observation["obs"][:, 0], expected + 2 * actions[:, 0]
++        )
++        np.testing.assert_array_equal(state.obs["obs"][:, 0], expected)
++        env.set_episode_length_buf(np.arange(10, dtype=np.int64))
++        obs, info = env.reset(np.array([8, 0, 3]))
++        np.testing.assert_array_equal(obs["obs"][:, 0], expected[[8, 0, 3]])
++        assert info["source_logs"]["3"]["reset"] == [2]
++        assert not env.state.terminated[[8, 0, 3]].any()
++        assert env.source_slices["2"] == slice(3, 6)
++    assert all(not alive(pid) for pid in pids)
++    env.close()
++    with pytest.raises(RuntimeError, match="closed"):
++        env.step(actions)
++
++
++def test_dispatches_all_sources_before_waiting_for_step(tmp_path):
++    with SynchronousEnv(specs(barrier=str(tmp_path))) as env:
++        env.init_state()
++        state = env.step(np.ones((10, 1), np.float32))
++        assert state.obs["obs"].shape == (10, 2)
++
++
++@pytest.mark.parametrize("mode", ["groups", "shape", "dtype", "nan", "flags", "final"])
++def test_malformed_source_poisons_service(mode):
++    env = SynchronousEnv(specs(1, mode=mode))
++    env.init_state()
++    with pytest.raises(ValueError):
++        env.step(np.zeros((1, 1), np.float32))
++    with pytest.raises(RuntimeError, match="closed"):
++        env.init_state()
++
++
++def test_flat_observation_space_includes_critic_dimensions():
++    with SynchronousEnv([SourceSpec("flat", FlatObservationEnv, 2)]) as env:
++        assert env.observation_space.shape == (446,)
++        assert env.init_state().obs["obs"].shape == (2, 160)
++        assert env.state.obs["critic"].shape == (2, 286)
++
++
++def test_initialization_done_sentinels_do_not_require_terminal_observations():
++    with SynchronousEnv(specs(1, initial_done=True)) as env:
++        state = env.init_state()
++        assert state.terminated.all() and state.final_observation is None
++        env.reset(np.array([0]))
++        assert not env.state.terminated.any()
++        state = env.step(np.ones((1, 1), np.float32))
++        assert not (state.terminated | state.truncated).any()
++        state = env.step(np.ones((1, 1), np.float32))
++        assert state.terminated.all() and state.final_observation is not None
++        np.testing.assert_array_equal(state.final_observation["obs"][:, 0], [2])
++
++
++@pytest.mark.parametrize("mode", ["hang", "crash"])
++def test_failed_request_cleans_worker_and_nested_processes(tmp_path, mode):
++    marker = tmp_path / "pids"
++    env = SynchronousEnv(specs(1, mode=mode, nested=True, pids=str(marker)))
++    env.init_state()
++    pids = [int(pid) for pid in marker.read_text().split()]
++    env.timeout_s = 0.2
++    before = time.monotonic()
++    with pytest.raises((TimeoutError, RuntimeError)):
++        env.step(np.zeros((1, 1), np.float32))
++    assert time.monotonic() - before < 5
++    assert all(not alive(pid) for pid in pids)
++    assert all(conn.closed for conn in env._connections)
++
++
++def test_graceful_close_still_cleans_unclosed_nested_workers(tmp_path):
++    marker, closed = tmp_path / "pids", tmp_path / "closed"
++    env = SynchronousEnv(specs(1, nested=True, pids=str(marker), closed=str(closed)))
++    pids = [int(pid) for pid in marker.read_text().split()]
++    env.close()
++    assert closed.read_text() == "closed"
++    assert all(not alive(pid) for pid in pids)
++
++
++def test_graceful_close_waits_for_shared_memory_release(tmp_path):
++    marker, closed = tmp_path / "shared_memory", tmp_path / "closed"
++    env = SynchronousEnv(specs(1, shared_memory=str(marker), close_delay=1.5, closed=str(closed)))
++    allocation = Path("/dev/shm") / marker.read_text()
++    assert allocation.exists()
++    before = time.monotonic()
++    env.close()
++    assert 1.5 <= time.monotonic() - before < 5
++    assert closed.read_text() == "closed"
++    assert not allocation.exists()
++
++
++def test_metadata_mismatch_and_constructor_failure_close_all(tmp_path):
++    closed, marker = tmp_path / "closed", tmp_path / "shared_memory"
++    for mode in ("metadata", "constructor"):
++        sources = specs(2, closed=str(closed), close_delay=1.5, shared_memory=str(marker))
++        sources[1] = SourceSpec("1", PhysicsEnv, 2, {"mode": mode})
++        with pytest.raises((ValueError, RuntimeError)):
++            SynchronousEnv(sources)
++        assert closed.exists()
++        assert not (Path("/dev/shm") / marker.read_text()).exists()
++        closed.unlink()
++
++
++def test_startup_timeout_closes_partial_construction(tmp_path):
++    marker = tmp_path / "pids"
++    with pytest.raises(TimeoutError, match="startup"):
++        SynchronousEnv(
++            specs(1, mode="startup_hang", nested=True, pids=str(marker)), startup_timeout_s=5
++        )
++    if marker.exists():
++        assert all(not alive(int(pid)) for pid in marker.read_text().split())
++
++
++def test_stale_source_response_closes_service(monkeypatch):
++    env = SynchronousEnv(specs(1))
++    original = synchronous_env._receive
++
++    def stale(conn, request):
++        source, seq, status, result = original(conn, request)
++        return source, seq - 1, status, result
++
++    monkeypatch.setattr(synchronous_env, "_receive", stale)
++    with pytest.raises(RuntimeError, match="stale"):
++        env.init_state()
++    assert all(conn.closed for conn in env._connections)
++
++
++def test_duplicate_response_rejected():
++    parent, child = mp.Pipe()
++    try:
++        child.send(("a", 0, "ok", None))
++        child.send(("a", 0, "ok", None))
++        with pytest.raises(RuntimeError, match="duplicate"):
++            synchronous_env._receive(parent, None)
++    finally:
++        parent.close()
++        child.close()
+diff --git a/tests/logging/test_synchronous_report.py b/tests/logging/test_synchronous_report.py
+new file mode 100644
+index 0000000..498ea6f
+--- /dev/null
++++ b/tests/logging/test_synchronous_report.py
+@@ -0,0 +1,347 @@
++"""Reject fabricated budget evidence and audit actual checkpoint tensor fields."""
++
++import hashlib
++import json
++
++import pytest
++import torch
++
++from uni_rl.logging.synchronous_report import SOURCE_ORDER, audit_run, report
++
++
++def fixture_run(path, iterations=2, num_envs=2):
++    path.mkdir()
++    algorithm = {
++        "num_envs": num_envs,
++        "num_steps_per_env": 24,
++        "save_interval": 500,
++        "empirical_normalization": True,
++        "algorithm": {"num_learning_epochs": 5, "num_mini_batches": 4, "schedule": "adaptive"},
++    }
++    sources = [{"source": name, "device": "cpu"} for name in SOURCE_ORDER]
++    behavior = {"sources": sources, "algorithm": algorithm, "assets": {"robot.xml": "a" * 64}}
++    digest = hashlib.sha256(json.dumps(behavior, sort_keys=True).encode()).hexdigest()
++    (path / "sources_manifest.json").write_text(json.dumps({**behavior, "digest": digest}))
++    (path / "run_config.json").write_text(
++        json.dumps(
++            {
++                "run": {"mode": "synchronous_four_source", "manifest_digest": digest},
++                "config": {
++                    "algo": {**algorithm, "max_iterations": iterations},
++                    "unidr": {
++                        "sources": [{"name": name, "device": "cpu"} for name in SOURCE_ORDER]
++                    },
++                },
++            }
++        )
++    )
++    rows = []
++    for iteration in range(iterations):
++        count, samples = iteration + 1, num_envs * 96
++        rows.append(
++            {
++                "iteration": iteration,
++                "generation": 0,
++                "window_stamp": [iteration, iteration, iteration * 24],
++                "policy_version": count,
++                "normalizer_version": count * 24,
++                "optimizer_steps": count * 20,
++                "total_transitions": count * samples,
++                "epoch_samples": [samples] * 5,
++                "sources": {
++                    name: {
++                        "transitions": samples // 4,
++                        "reward": 0.5,
++                        "episode_return": 5.0,
++                        "episode_length": 10.0,
++                        "terminated": 1,
++                        "truncated": 0,
++                    }
++                    for name in SOURCE_ORDER
++                },
++                "reward": 0.5,
++                "episode_return": 5.0,
++                "episode_length": 10.0,
++                "losses": {"value": 0.1, "surrogate": -0.01, "entropy": 0.4},
++                "learning_rate": 0.0001,
++                "collect_seconds": 2.0,
++                "learn_seconds": 0.5,
++            }
++        )
++        if iteration not in (0, iterations - 1):
++            continue
++        states = {}
++        for name, shape in (("actor", (2, 2)), ("critic", (1, 3))):
++            states[f"{name}_state_dict"] = {
++                "mlp.0.weight": torch.full(shape, float(iteration)),
++                "obs_normalizer._mean": torch.zeros(1, shape[-1]),
++                "obs_normalizer._var": torch.ones(1, shape[-1]),
++                "obs_normalizer._std": torch.ones(1, shape[-1]),
++                "obs_normalizer.count": torch.tensor(count * samples, dtype=torch.int64),
++            }
++        optimizer = {
++            "param_groups": [{"params": [0, 1], "lr": 0.0001}],
++            "state": {
++                index: {
++                    "step": torch.tensor(float(count * 20)),
++                    "exp_avg": torch.zeros(shape),
++                    "exp_avg_sq": torch.zeros(shape),
++                }
++                for index, shape in enumerate(((2, 2), (1, 3)))
++            },
++        }
++        torch.save(
++            {
++                **states,
++                "optimizer_state_dict": optimizer,
++                "iter": iteration,
++                "synchronous": {
++                    "format": 1,
++                    "complete": True,
++                    "contract": {
++                        "manifest_digest": digest,
++                        "train_cfg": algorithm,
++                        "num_envs": num_envs * 4,
++                        "sources": [
++                            (name, i * num_envs, (i + 1) * num_envs)
++                            for i, name in enumerate(SOURCE_ORDER)
++                        ],
++                    },
++                    "next_iteration": count,
++                    "policy_version": count,
++                    "normalizer_version": count * 24,
++                    "optimizer_steps": count * 20,
++                    "total_transitions": count * samples,
++                    "generation": 0,
++                    "learning_rate": 0.0001,
++                },
++            },
++            path / f"model_{iteration}.pt",
++        )
++    (path / "synchronous_metrics.jsonl").write_text(
++        "\n".join(json.dumps(row) for row in rows) + "\n"
++    )
++    return path
++
++
++def test_formal_budget_audits_all_10000_iterations(tmp_path):
++    run = fixture_run(tmp_path / "run", 10000, 1024)
++    result = audit_run(run)
++    assert result["scope"] == "formal_training_budget"
++    assert result["total_transitions"] == 983040000
++    assert result["optimizer_steps"] == 200000
++    assert set(result["source_total_transitions"].values()) == {245760000}
++    assert result["parameters_changed_since_iteration_0"] == {"actor": True, "critic": True}
++    assert (
++        result["final_checkpoint_sha256"]
++        == hashlib.sha256((run / "model_9999.pt").read_bytes()).hexdigest()
++    )
++
++
++def test_bounded_run_requires_explicit_budget(tmp_path):
++    run = fixture_run(tmp_path / "run")
++    with pytest.raises(ValueError, match="max_iterations"):
++        audit_run(run)
++    result = audit_run(run, expected_iterations=2, num_envs=2)
++    assert result["scope"] == "bounded_validation_budget" and result["total_transitions"] == 384
++
++
++@pytest.mark.parametrize(
++    "fault", ["missing", "duplicate", "stamp", "boolean", "source", "epoch", "nan"]
++)
++def test_reject_bad_metric_evidence(tmp_path, fault):
++    run = fixture_run(tmp_path / "run")
++    path = run / "synchronous_metrics.jsonl"
++    rows = [json.loads(line) for line in path.read_text().splitlines()]
++    if fault == "missing":
++        rows.pop()
++    elif fault == "duplicate":
++        rows[1] = rows[0]
++    elif fault == "stamp":
++        rows[-1]["window_stamp"][2] = 0
++    elif fault == "boolean":
++        rows[-1]["iteration"] = True
++    elif fault == "source":
++        rows[-1]["sources"]["genesis"]["transitions"] -= 1
++    elif fault == "epoch":
++        rows[-1]["epoch_samples"][-1] -= 1
++    elif fault == "nan":
++        rows[-1]["losses"]["value"] = float("nan")
++    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
++    with pytest.raises(ValueError):
++        audit_run(run, expected_iterations=2, num_envs=2)
++
++
++@pytest.mark.parametrize(
++    "fault",
++    [
++        "partial",
++        "counter",
++        "adam",
++        "count",
++        "float_count",
++        "missing_count",
++        "nan",
++        "moment_shape",
++        "missing_param",
++        "unchanged",
++    ],
++)
++@pytest.mark.parametrize("prefix", [False, True])
++def test_reject_corrupt_saved_learner(tmp_path, fault, prefix):
++    run = fixture_run(tmp_path / "run")
++    path = run / "model_1.pt"
++    saved = torch.load(path, weights_only=False)
++    if fault == "partial":
++        saved["synchronous"]["complete"] = False
++    elif fault == "counter":
++        saved["synchronous"]["optimizer_steps"] -= 1
++    elif fault == "adam":
++        saved["optimizer_state_dict"]["state"][0]["step"] -= 1
++    elif fault == "count":
++        saved["actor_state_dict"]["obs_normalizer.count"] -= 1
++    elif fault == "float_count":
++        saved["actor_state_dict"]["obs_normalizer.count"] = torch.tensor(384.0)
++    elif fault == "missing_count":
++        saved["actor_state_dict"].pop("obs_normalizer.count")
++    elif fault == "nan":
++        saved["critic_state_dict"]["mlp.0.weight"].fill_(float("nan"))
++    elif fault == "moment_shape":
++        saved["optimizer_state_dict"]["state"][0]["exp_avg"] = torch.zeros(17)
++    elif fault == "missing_param":
++        saved["optimizer_state_dict"]["state"].pop(0)
++    elif fault == "unchanged":
++        saved["critic_state_dict"]["mlp.0.weight"].zero_()
++    torch.save(saved, path)
++    with pytest.raises(ValueError):
++        audit_run(run, expected_iterations=2, num_envs=2, final_checkpoint=path if prefix else None)
++
++
++@pytest.mark.parametrize("fault", ["intent", "capacity", "fingerprint"])
++def test_reject_mismatched_metadata(tmp_path, fault):
++    run = fixture_run(tmp_path / "run")
++    path = run / "run_config.json"
++    cfg = json.loads(path.read_text())
++    if fault == "intent":
++        cfg["config"]["algo"]["max_iterations"] = 10000
++    elif fault == "capacity":
++        cfg["config"]["algo"]["num_envs"] = 1024
++    elif fault == "fingerprint":
++        cfg["run"]["manifest_digest"] = "b" * 64
++    path.write_text(json.dumps(cfg))
++    with pytest.raises(ValueError):
++        audit_run(run, expected_iterations=2, num_envs=2)
++
++
++def test_report_never_overwrites_run_or_existing_outputs(tmp_path):
++    run = fixture_run(tmp_path / "run")
++    for output in (run, tmp_path):
++        with pytest.raises(ValueError, match="separate"):
++            report(run, output, expected_iterations=2, num_envs=2)
++    output = tmp_path / "report"
++    output.mkdir()
++    (output / "keep.txt").write_text("unrelated")
++    with pytest.raises(ValueError, match="empty"):
++        report(run, output, expected_iterations=2, num_envs=2)
++    assert (output / "keep.txt").read_text() == "unrelated"
++
++
++@pytest.mark.parametrize("prefix", [False, True])
++def test_report_creates_json_and_standalone_curves(tmp_path, prefix):
++    pytest.importorskip("matplotlib")
++    run = fixture_run(tmp_path / "run")
++    output = tmp_path / "report"
++    result = report(
++        run,
++        output,
++        expected_iterations=2,
++        num_envs=2,
++        final_checkpoint=run / "model_1.pt" if prefix else None,
++    )
++    assert json.loads((output / "audit.json").read_text()) == result
++    assert (output / "curves.png").read_bytes().startswith(b"\x89PNG")
++    assert (output / "curves.pdf").read_bytes().startswith(b"%PDF")
++
++
++@pytest.mark.parametrize("fault", [None, "cycle", "manifest", "generation", "gap"])
++def test_resume_follows_only_selected_checkpoint_prefix(tmp_path, fault):
++    parent = fixture_run(tmp_path / "parent", iterations=3)
++    child = fixture_run(tmp_path / "child", iterations=3)
++    cfg_path = child / "run_config.json"
++    cfg = json.loads(cfg_path.read_text())
++    cfg["config"]["algo"].update(resume=True, resume_path=str(parent / "model_0.pt"))
++    if fault == "cycle":
++        cfg["config"]["algo"]["resume_path"] = str(child / "model_0.pt")
++    cfg_path.write_text(json.dumps(cfg))
++    metrics_path = child / "synchronous_metrics.jsonl"
++    rows = [json.loads(line) for line in metrics_path.read_text().splitlines()][1:]
++    for row in rows:
++        row["generation"] = 0 if fault == "generation" else 1
++    if fault == "gap":
++        rows.pop(0)
++    metrics_path.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
++    checkpoint = child / "model_2.pt"
++    saved = torch.load(checkpoint, weights_only=False)
++    saved["synchronous"]["generation"] = 1
++    torch.save(saved, checkpoint)
++    if fault == "manifest":
++        path = parent / "sources_manifest.json"
++        manifest = json.loads(path.read_text())
++        manifest["assets"]["robot.xml"] = "b" * 64
++        path.write_text(json.dumps(manifest))
++    if fault:
++        with pytest.raises(ValueError):
++            audit_run(child, expected_iterations=3, num_envs=2)
++    else:
++        # A torn abandoned tail must not invalidate the selected completed prefix.
++        with (parent / "synchronous_metrics.jsonl").open("a") as stream:
++            stream.write('{"iteration":')
++        result = audit_run(child, expected_iterations=3, num_envs=2)
++        assert result["total_transitions"] == 576 and result["generations"] == [0, 1]
++        assert [stage["through_iteration"] for stage in result["history"]] == [0, 2]
++
++
++def test_explicit_checkpoint_preserves_original_intent_and_excludes_uncommitted_tail(tmp_path):
++    run = fixture_run(tmp_path / "run", iterations=3)
++    config_path = run / "run_config.json"
++    cfg = json.loads(config_path.read_text())
++    cfg["config"]["algo"]["max_iterations"] = 10000
++    config_path.write_text(json.dumps(cfg))
++    config_bytes = config_path.read_bytes()
++    selected = run / "model_2.pt"
++    checkpoint_bytes = selected.read_bytes()
++    tail = '{"iteration": 3}\n{"iteration":'
++    with (run / "synchronous_metrics.jsonl").open("a") as stream:
++        stream.write(tail)
++    with pytest.raises(ValueError, match="max_iterations"):
++        audit_run(run, expected_iterations=3, num_envs=2)
++    result = audit_run(run, expected_iterations=3, num_envs=2, final_checkpoint=selected)
++    assert result["scope"] == "explicit_checkpoint_prefix"
++    assert result["audit_mode"] == "selected_checkpoint_prefix"
++    assert result["configured_max_iterations"] == 10000 and result["iterations"] == 3
++    assert result["total_transitions"] == 576 and result["optimizer_steps"] == 60
++    assert set(result["source_total_transitions"].values()) == {144}
++    assert result["history"][-1]["excluded_metric_tail_bytes"] == len(tail.encode())
++    assert result["final_checkpoint"] == str(selected)
++    assert result["final_checkpoint_sha256"] == hashlib.sha256(checkpoint_bytes).hexdigest()
++    assert config_path.read_bytes() == config_bytes and selected.read_bytes() == checkpoint_bytes
++
++
++@pytest.mark.parametrize("fault", ["outside", "filename", "intent", "missing_metric"])
++def test_explicit_checkpoint_still_requires_the_selected_committed_boundary(tmp_path, fault):
++    run = fixture_run(tmp_path / "run", iterations=3)
++    selected = run / "model_2.pt"
++    if fault == "outside":
++        selected = fixture_run(tmp_path / "other", iterations=3) / "model_2.pt"
++    elif fault == "filename":
++        selected = run / "model_0.pt"
++    elif fault == "intent":
++        path = run / "run_config.json"
++        cfg = json.loads(path.read_text())
++        cfg["config"]["algo"]["max_iterations"] = 2
++        path.write_text(json.dumps(cfg))
++    elif fault == "missing_metric":
++        path = run / "synchronous_metrics.jsonl"
++        path.write_text("\n".join(path.read_text().splitlines()[:-1]) + "\n")
++    with pytest.raises(ValueError):
++        audit_run(run, expected_iterations=3, num_envs=2, final_checkpoint=selected)

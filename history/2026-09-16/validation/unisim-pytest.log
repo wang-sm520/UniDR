@@ -1,0 +1,48 @@
+[Quadrants] version 1.3.0, llvm 22.1.0, commit ab9a58ab, linux, python 3.10.12
+........................................................................ [ 23%]
+................................F...........................s........... [ 47%]
+...s.................................................................... [ 71%]
+..........ss.s.......................................................... [ 95%]
+........s.sss                                                            [100%]
+=================================== FAILURES ===================================
+____________ TestOnFrameEndToEnd.test_on_frame_paints_video_frames _____________
+
+self = <test_debug_overlay.TestOnFrameEndToEnd object at 0x7a773ca255a0>
+tmp_path = PosixPath('/tmp/pytest-of-wsm/pytest-318/test_on_frame_paints_video_fra0')
+
+    def test_on_frame_paints_video_frames(self, tmp_path: Path) -> None:
+        pytest.importorskip("mujoco")
+        pytest.importorskip("imageio")
+        from unisim.visualization import render_many
+    
+        if not render_many.render_backend_usable():
+            pytest.skip("no usable MuJoCo off-screen GL backend on this host")
+        model_path = tmp_path / "scene.xml"
+        model_path.write_text(TestHeadlessPrimitiveRendering.MODEL)
+        out_path = tmp_path / "play.gif"
+        import subprocess
+        import sys
+    
+        result = subprocess.run(
+            [sys.executable, "-c", self._SCRIPT, str(model_path), str(out_path)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+>       assert result.returncode == 0 and "ONFRAME-OK" in result.stdout, (
+            f"on_frame subprocess failed:\n{result.stdout}\n{result.stderr}"
+        )
+E       AssertionError: on_frame subprocess failed:
+E         Rendering 2 frames for 2 envs with 8 processes...
+E         
+E         Traceback (most recent call last):
+E           File "<string>", line 39, in <module>
+E         AssertionError
+E         
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['/home/wsm/wang-sm/UniDR-9-16-resume/.venv/bin/python', '-c', '\nimport sys\nfrom types import ...rocesses...\n', stderr='Traceback (most recent call last):\n  File "<string>", line 39, in <module>\nAssertionError\n').returncode
+
+tests/test_debug_overlay.py:934: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_debug_overlay.py::TestOnFrameEndToEnd::test_on_frame_paints_video_frames
+1 failed, 291 passed, 14 skipped in 11.86s

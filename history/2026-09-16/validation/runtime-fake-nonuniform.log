@@ -1,0 +1,1 @@
+{"actor_critic_changed": [true, true], "evidence": "fake sources / real PPO", "losses": {"entropy": 1.4574015974998473, "surrogate": -0.014950339123606682, "value": 13.108317828178405}, "optimizer_steps": [20], "source_counts": {"fake_genesis": 48, "fake_isaacgym": 48, "fake_isaacsim": 50, "fake_motrix": 46}, "transitions": 192}

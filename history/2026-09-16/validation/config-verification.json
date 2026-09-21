@@ -1,0 +1,102 @@
+{
+  "single_sources": {
+    "motrix": {
+      "config_differences": [
+        ".training.log_dir"
+      ],
+      "assets_equal": true,
+      "learner_seed": 1,
+      "env_seed": 5,
+      "manifest_digest": "30819fb2f19f6b98f61805faefdf29dc864ff0f724eaf62b72843f4f181eadec"
+    },
+    "isaacsim": {
+      "config_differences": [
+        ".training.log_dir"
+      ],
+      "assets_equal": true,
+      "learner_seed": 1,
+      "env_seed": 2,
+      "manifest_digest": "9111f0539f13939ab0b0cfc683910e89a6ba184e5ecb030a5ad94abe31c68ac2"
+    },
+    "isaacgym": {
+      "config_differences": [
+        ".training.log_dir"
+      ],
+      "assets_equal": true,
+      "learner_seed": 1,
+      "env_seed": 3,
+      "manifest_digest": "1d5b9f7e197527120894f43efc9ce04b4eb6969cb28adaa1b8a3bf6511a8d532"
+    },
+    "genesis": {
+      "config_differences": [
+        ".training.log_dir"
+      ],
+      "assets_equal": true,
+      "learner_seed": 1,
+      "env_seed": 4,
+      "manifest_digest": "905dc6f30eae6cc7d2b036c216ce02390244df54bc58ca4c8d2b20251c30fdc3"
+    }
+  },
+  "joint_modes": {
+    "unidr_single_gpu": {
+      "sources": [
+        {
+          "source": "isaacsim",
+          "device": "cuda:0",
+          "env_seed": 2
+        },
+        {
+          "source": "isaacgym",
+          "device": "cuda:0",
+          "env_seed": 3
+        },
+        {
+          "source": "genesis",
+          "device": "cuda:0",
+          "env_seed": 4
+        },
+        {
+          "source": "motrix",
+          "device": "cpu",
+          "env_seed": 5
+        }
+      ],
+      "default_iterations": 10000,
+      "num_envs_per_source": 1024,
+      "steps_per_env": 24,
+      "learner_device": "cuda:0",
+      "source_adaptive_present": false,
+      "manifest_digest": "a336046dedf1f27c47f7b797235a9dcb98c9f9dfcfb4917d93b141bf7e0ebc47"
+    },
+    "unidr_four_gpu": {
+      "sources": [
+        {
+          "source": "isaacsim",
+          "device": "cuda:0",
+          "env_seed": 2
+        },
+        {
+          "source": "isaacgym",
+          "device": "cuda:1",
+          "env_seed": 3
+        },
+        {
+          "source": "genesis",
+          "device": "cuda:2",
+          "env_seed": 4
+        },
+        {
+          "source": "motrix",
+          "device": "cpu",
+          "env_seed": 5
+        }
+      ],
+      "default_iterations": 10000,
+      "num_envs_per_source": 1024,
+      "steps_per_env": 24,
+      "learner_device": "cuda:3",
+      "source_adaptive_present": false,
+      "manifest_digest": "0a68e1638c856b6bbbb85f45b450cb57041e076607cbc2099d305311d4df4e2f"
+    }
+  }
+}

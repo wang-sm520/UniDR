@@ -1,0 +1,35 @@
+Runtime historical snapshot validation: 2026-09-21
+Working directory: /home/wsm/wang-sm/UniDR-9-16-resume/unilab_rl
+
+All commands were prefixed with:
+env -u PYTHONPATH UV_PROJECT_ENVIRONMENT=/home/wsm/wang-sm/UniDR-9-16-resume/.venv UV_NO_SYNC=1 CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 UNILAB_LOCAL_UNISIM=/home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends PYTHONDONTWRITEBYTECODE=1 MYPY_CACHE_DIR=/dev/null RUFF_NO_CACHE=true COVERAGE_FILE=/home/wsm/wang-sm/UniDR-9-16-resume/.validation/runtime-coverage PATH=/home/wsm/.vscode-server/cli/servers/Stable-520fb30b2d3d324b4cb2342f6e88e2cd93751de1/server:$PATH
+
+1. uv run --no-sync ruff check src tests examples
+   Exit 0. All checks passed. runtime-ruff.log
+2. uv run --no-sync ruff format --check src tests examples
+   Exit 0. 127 files already formatted. runtime-format.log
+3. uv run --no-sync mypy src/uni_rl
+   Exit 0. No issues found in 81 source files. runtime-mypy.log
+4. uv run --no-sync pyright --pythonpath /home/wsm/wang-sm/UniDR-9-16-resume/.venv/bin/python
+   Exit 0. 0 errors, 0 warnings, 0 informations. runtime-pyright.log
+5. uv run --no-sync pytest --cov=src/uni_rl --cov-report=term --cov-fail-under=50 -p no:cacheprovider
+   Exit 0. 505 passed, 34 skipped, 3 deselected in 54.38s.
+   Coverage 64.81%, above required 50%. runtime-pytest.log
+6. uv run --no-sync python examples/unidr_fake_ppo.py
+   Exit 0. Actor and critic changed, optimizer_steps=[20], transitions=192.
+   Source counts Isaac Sim/Gym/Genesis/Motrix: 48/48/48/48.
+   runtime-fake-uniform.log
+7. uv run --no-sync python examples/unidr_fake_ppo.py 'steps=[25,24,24,23]'
+   Exit 0. Actor and critic changed, optimizer_steps=[20], transitions=192.
+   Source counts Isaac Sim/Gym/Genesis/Motrix: 50/48/48/46.
+   runtime-fake-nonuniform.log
+
+Read-only import/metadata/source checks (uv run --no-sync python -): exit 0.
+uni_rl imported from restored unilab_rl/src/uni_rl, with matching editable metadata.
+RSL-RL 5.0.1 and Torch 2.8.0+cu128.
+90 runtime historical files match sources.json SHA-256 values.
+See runtime-provenance.log.
+
+No source fixes, formatting changes, uv sync, training, or GPU backend runs performed.
+This validates deterministic fake-driven real PPO and the historical runtime test suite.
+It does not validate four physical engines, GPU capacity, or training quality.

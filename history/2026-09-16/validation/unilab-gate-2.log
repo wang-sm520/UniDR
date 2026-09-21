@@ -1,0 +1,13 @@
+src/unilab/managers/recorder_manager.py:237: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/managers/metrics_manager.py:223: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/managers/curriculum_manager.py:149: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/managers/curriculum_manager.py:150: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/managers/command_manager.py:302: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/managers/command_manager.py:303: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py:28: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py:29: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py:30: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py:31: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py:38: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/unilab/visualization/render_many.py:499: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Success: no issues found in 142 source files

@@ -1,0 +1,24 @@
+{
+  "restored_count": 1228,
+  "restored_mismatches": [],
+  "archive_count": 644,
+  "archive_mismatches": [],
+  "sources_hash_mismatches": [],
+  "archive_sha256": "fe4f3a15c91069eb1d229fc1a3adbfedafe020827525f5198b51a112df6dbe3d",
+  "expected_archive_sha256": "fe4f3a15c91069eb1d229fc1a3adbfedafe020827525f5198b51a112df6dbe3d",
+  "later_files_absent": {
+    "unilab_rl/src/uni_rl/algos/source_schedule.py": true,
+    "unilab_rl/src/uni_rl/algos/quota_ppo.py": true,
+    "unilab_rl/src/uni_rl/algos/source_probe.py": true,
+    "UniLab/src/unilab/training/source_probe.py": true,
+    "UniLab/src/unilab/conf/ppo/task/g1_flip_tracking/unidr_adaptive.yaml": true,
+    "UniLab/src/unilab/conf/ppo/task/g1_flip_tracking/unidr_comparison.yaml": true,
+    "UniLab/src/unilab/conf/ppo/task/g1_flip_tracking/unidr_adaptive_four_gpu.yaml": true,
+    "UniLab/src/unilab/training/joint_comparison.py": true,
+    "UniLab/scripts/run_joint_comparison.sh": true
+  },
+  "isaacsim_worker_restored_sha256": "9d82a7c2c7afa8b1363270fb85fae58ea474a68b650f99ed78bf0741dafeef81",
+  "isaacsim_worker_current_repaired_sha256": "08f6214f5ca6a6189643f0da14dd0a8649907da74f83d4668718d8ab4e19d60d",
+  "isaacsim_worker_matches_old_archive": true,
+  "passed": true
+}

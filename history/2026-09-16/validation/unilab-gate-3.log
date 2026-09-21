@@ -1,0 +1,36 @@
+/home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/base/reset_state.py
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/base/reset_state.py:1402:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/base/reset_state.py:1403:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+/home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/cli.py
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/cli.py:163:18 - warning: Import "drake_uni.runtime" could not be resolved (reportMissingImports)
+/home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/managers/_buffers/circular_buffer.py
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/managers/_buffers/circular_buffer.py:220:9 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/managers/_buffers/circular_buffer.py:227:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+/home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:763:9 - error: No overloads for "__call__" match the provided arguments (reportCallIssue)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:763:19 - error: Argument of type "Unknown | ndarray[Unknown, Unknown] | None" cannot be assigned to parameter "__x1" of type "_SupportsArrayUFunc" in function "__call__"
+    Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to type "_SupportsArrayUFunc"
+      "None" is incompatible with protocol "_SupportsArrayUFunc"
+        "__array_ufunc__" is not present (reportArgumentType)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:764:9 - error: No overloads for "sum" match the provided arguments (reportCallIssue)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:764:16 - error: Argument of type "Unknown | ndarray[Unknown, Unknown] | None" cannot be assigned to parameter "a" of type "ArrayLike" in function "sum"
+    Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to type "ArrayLike"
+      Type "None" is not assignable to type "ArrayLike"
+        "None" is incompatible with protocol "_Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "_SupportsArray[dtype[Any]]"
+          "__array__" is not present
+        "None" is incompatible with protocol "_NestedSequence[_SupportsArray[dtype[Any]]]"
+          "__len__" is not present
+    ... (reportArgumentType)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:764:35 - error: Argument of type "Unknown | ndarray[Unknown, Unknown] | None" cannot be assigned to parameter "out" of type "_ArrayT@sum" in function "sum"
+    Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to type "ndarray[Any, Any]"
+      Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to type "ndarray[Any, Any]"
+        "None" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/tasks/motion_tracking/common/manager_terms.py:765:16 - error: Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to return type "ndarray[Unknown, Unknown]"
+    Type "Unknown | ndarray[Unknown, Unknown] | None" is not assignable to type "ndarray[Unknown, Unknown]"
+      "None" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+10 errors, 1 warning, 0 informations
+WARNING: there is a new pyright version available (v1.1.408 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+

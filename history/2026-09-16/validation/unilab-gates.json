@@ -1,0 +1,66 @@
+[
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "ruff",
+      "check",
+      "."
+    ],
+    "exit_code": 0,
+    "log": ".validation/unilab-gate-0.log"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "ruff",
+      "format",
+      "--check",
+      "."
+    ],
+    "exit_code": 0,
+    "log": ".validation/unilab-gate-1.log"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "mypy",
+      "src/unilab"
+    ],
+    "exit_code": 0,
+    "log": ".validation/unilab-gate-2.log"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "pyright",
+      "--pythonpath",
+      "/home/wsm/wang-sm/UniDR-9-16-resume/.venv/bin/python"
+    ],
+    "exit_code": 1,
+    "log": ".validation/unilab-gate-3.log"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "ruff",
+      "check",
+      "tests",
+      "--select",
+      "F401,F821,F811,F841",
+      "--output-format",
+      "concise"
+    ],
+    "exit_code": 0,
+    "log": ".validation/unilab-gate-4.log"
+  }
+]

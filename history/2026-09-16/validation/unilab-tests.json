@@ -1,0 +1,27 @@
+[
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "pytest",
+      "-m",
+      "not slow",
+      "--cov=src/unilab",
+      "--cov-report=term-missing"
+    ],
+    "exit_code": 1,
+    "log": ".validation/unilab-tests-0.log"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "python",
+      "scripts/benchmark/smoke_test.py"
+    ],
+    "exit_code": 0,
+    "log": ".validation/unilab-tests-1.log"
+  }
+]

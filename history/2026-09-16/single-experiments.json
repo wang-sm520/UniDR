@@ -1,0 +1,3014 @@
+{
+  "motrix": {
+    "config": {
+      "algo": {
+        "algo": "ppo",
+        "algo_log_name": "rsl_rl_ppo",
+        "seed": 1,
+        "num_envs": 1024,
+        "num_steps_per_env": 24,
+        "max_iterations": 20000,
+        "save_interval": 500,
+        "empirical_normalization": true,
+        "runner_class_name": "OnPolicyRunner",
+        "obs_groups": {
+          "default": [
+            "policy"
+          ],
+          "actor": [
+            "actor"
+          ],
+          "critic": [
+            "critic"
+          ]
+        },
+        "experiment_name": "test",
+        "run_name": "",
+        "resume": false,
+        "load_run": "-1",
+        "checkpoint": -1,
+        "resume_path": null,
+        "policy": {
+          "init_noise_std": 1.0,
+          "actor_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "critic_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "activation": "elu",
+          "class_name": "ActorCritic"
+        },
+        "algorithm": {
+          "class_name": "uni_rl.algos.rsl_rl_ppo:FinalObservationAwarePPO",
+          "value_loss_coef": 1.0,
+          "use_clipped_value_loss": true,
+          "clip_param": 0.2,
+          "entropy_coef": 0.005,
+          "num_learning_epochs": 5,
+          "num_mini_batches": 4,
+          "learning_rate": 0.001,
+          "schedule": "adaptive",
+          "gamma": 0.99,
+          "lam": 0.95,
+          "desired_kl": 0.01,
+          "target_kl_stop": null,
+          "max_grad_norm": 1.0,
+          "adaptive_kl_beta": 0.9,
+          "adaptive_lr_growth": 1.1,
+          "adaptive_lr_decay": 1.2,
+          "adaptive_lr_update_interval": 5,
+          "metrics_interval": 8,
+          "finite_check_interval": 8,
+          "enable_compile": false,
+          "warmup_strict_iters": 10,
+          "warmup_metrics_interval": 2,
+          "warmup_finite_check_interval": 2,
+          "disable_finite_checks": true
+        }
+      },
+      "training": {
+        "task_name": "G1FlipTracking",
+        "devices": null,
+        "dp_collector_cpu_ids": null,
+        "device": "cuda:0",
+        "logger": "tensorboard",
+        "wandb_project": "unilab",
+        "wandb_entity": null,
+        "wandb_group": null,
+        "wandb_job_type": null,
+        "wandb_name": null,
+        "wandb_tags": [],
+        "wandb_notes": null,
+        "wandb_mode": null,
+        "sim_backend": "motrix",
+        "nan_guard": {
+          "enabled": true,
+          "buffer_size": 100,
+          "max_envs_to_dump": 5,
+          "output_dir": null
+        },
+        "play_only": false,
+        "no_play": true,
+        "sim2sim_strict": true,
+        "play_render_mode": "auto",
+        "play_env_num": 16,
+        "render_spacing": 1.0,
+        "play_steps": 1000,
+        "cam_distance": 6.0,
+        "cam_elevation": -20.0,
+        "cam_azimuth": 90.0,
+        "cam_lookat": null,
+        "cam_tracking": false,
+        "cam_tracking_env_idx": 0,
+        "cam_tracking_extra_envs": 2,
+        "log_root": null,
+        "num_timesteps": null,
+        "log_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/motrix"
+      },
+      "interactive": {
+        "action_mode": "zero",
+        "policy_obs_mode": "auto",
+        "show_target_bodies": false,
+        "show_reward_debug": false,
+        "target_show_axes": false,
+        "target_body_names": "",
+        "target_max_bodies": 0,
+        "target_marker_radius": 0.02,
+        "target_axis_length": 0.08,
+        "target_marker_alpha": 0.75,
+        "reward_debug_show_velocity": false,
+        "reward_debug_lin_vel_scale": 0.08,
+        "reward_debug_ang_vel_scale": 0.05,
+        "reward_debug_show_connectors": false,
+        "reward_debug_show_global_anchor": false,
+        "camera_follow_body": true,
+        "camera_focus_body_name": "",
+        "camera_height_offset": 0.15,
+        "camera_distance": null,
+        "camera_elevation": null,
+        "camera_azimuth": null,
+        "use_env_visual_model": true,
+        "speed": 1.0,
+        "start_paused": false,
+        "keyboard": false,
+        "keyboard_step_lin": 0.1,
+        "keyboard_step_ang": 0.2
+      },
+      "viser": {
+        "port": 8080,
+        "env_idx": 0,
+        "display_mode": "all",
+        "max_envs": 16
+      },
+      "env": {
+        "scene": {
+          "model_file": "src/unilab/assets/robots/g1/scene_flat.xml",
+          "default_keyframe_name": "stand",
+          "entities": {
+            "robot": {
+              "root_body_name": "pelvis",
+              "joint_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "actuator_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "geom_names": [
+                "left_foot1_collision",
+                "left_foot2_collision",
+                "left_foot3_collision",
+                "left_foot4_collision",
+                "left_foot5_collision",
+                "left_foot6_collision",
+                "left_foot7_collision",
+                "right_foot1_collision",
+                "right_foot2_collision",
+                "right_foot3_collision",
+                "right_foot4_collision",
+                "right_foot5_collision",
+                "right_foot6_collision",
+                "right_foot7_collision"
+              ]
+            }
+          }
+        },
+        "sim_dt": 0.005,
+        "ctrl_dt": 0.02,
+        "max_episode_seconds": 10.0,
+        "observations": {
+          "actor": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              }
+            }
+          },
+          "critic": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              },
+              "body_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "body_ori": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "joint_pos": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionJointPositionActionCfg",
+            "entity_name": "robot",
+            "actuator_names": [
+              ".*"
+            ],
+            "scale": {
+              ".*_(hip_pitch|hip_yaw)_joint": 0.5475464629911068,
+              ".*_(hip_roll|knee)_joint": 0.35066146637882434,
+              ".*_ankle_(pitch|roll)_joint": 0.43857731392336724,
+              "waist_yaw_joint": 0.5475464629911068,
+              "waist_(roll|pitch)_joint": 0.43857731392336724,
+              ".*_(shoulder_(pitch|roll|yaw)|elbow|wrist_roll)_joint": 0.43857731392336724,
+              ".*_wrist_(pitch|yaw)_joint": 0.07450087032950714
+            },
+            "use_default_offset": true,
+            "command_name": "motion"
+          }
+        },
+        "commands": {
+          "motion": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionCommandCfg",
+            "entity_name": "robot",
+            "resampling_time_range": [
+              1000000000.0,
+              1000000000.0
+            ],
+            "params": {
+              "motion_file": "motions/g1/flip_360_001__A304.npz",
+              "anchor_body_name": "torso_link",
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "sampling_mode": "start",
+              "sampling_start_ratio": 0.0,
+              "truncate_on_clip_end": false,
+              "pose_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "velocity_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "joint_position_range": [
+                0.0,
+                0.0
+              ],
+              "joint_default_position_range": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "terminations": {
+          "time_out": {
+            "func": "unilab.envs.mdp.time_out",
+            "time_out": true
+          },
+          "anchor_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5
+            }
+          },
+          "anchor_ori": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_ori",
+            "params": {
+              "command_name": "motion",
+              "threshold": 1000000000.0,
+              "asset_cfg": {
+                "_target_": "unilab.managers.SceneEntityCfg",
+                "name": "robot"
+              }
+            }
+          },
+          "ee_body_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_motion_body_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5,
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link",
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ]
+            }
+          },
+          "undesired_contacts": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_undesired_body_contacts",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.05,
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link"
+              ]
+            }
+          }
+        },
+        "policy_observation_group": "actor",
+        "critic_observation_group": "critic",
+        "motrix_disable_self_collision": true,
+        "genesis_enable_self_collision": false,
+        "seed": 5
+      },
+      "reward": {
+        "motion_global_root_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_position_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_global_root_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_orientation_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_body_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_orientation_error_exp",
+          "weight": 1.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_lin_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_linear_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "motion_body_ang_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_angular_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 3.14
+          }
+        },
+        "motion_joint_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_position_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.2
+          }
+        },
+        "motion_joint_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_velocity_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "action_rate_l2": {
+          "func": "unilab.envs.mdp.action_rate_l2",
+          "weight": -0.005
+        },
+        "joint_limit": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.joint_pos_limits",
+          "weight": -10.0,
+          "params": {
+            "asset_cfg": {
+              "_target_": "unilab.managers.SceneEntityCfg",
+              "name": "robot",
+              "joint_names": ".*"
+            }
+          }
+        },
+        "motion_ee_body_pos_z": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_z_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3,
+            "body_names": [
+              "left_ankle_roll_link",
+              "right_ankle_roll_link",
+              "left_wrist_yaw_link",
+              "right_wrist_yaw_link"
+            ]
+          }
+        },
+        "undesired_contacts": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.undesired_body_contacts",
+          "weight": -0.1,
+          "params": {
+            "command_name": "motion",
+            "threshold": 0.05,
+            "body_names": [
+              "pelvis",
+              "left_hip_roll_link",
+              "left_knee_link",
+              "right_hip_roll_link",
+              "right_knee_link",
+              "torso_link",
+              "left_shoulder_roll_link",
+              "left_elbow_link",
+              "right_shoulder_roll_link",
+              "right_elbow_link"
+            ]
+          }
+        }
+      },
+      "play_profile": {
+        "enabled": true,
+        "env": {
+          "render_spacing": 2.0
+        }
+      }
+    },
+    "assets": {
+      "src/unilab/assets/motions/g1/flip_360_001__A304.npz": "bd6785de42e569deb0f680057c0ff62449d3d99058e3c0c1ce437c373e8b604d",
+      "src/unilab/assets/robots/g1/assets/box_tracking/largebox.obj": "dbcc11281f62e9226f49165252375080d2e490e5a3f0ab6ba917acbd8f7abc1c",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box1.obj": "7cce9d9c4d4c90c0c486f0b198f881fd45893e812a6e5bdfcf7d9704d45f193b",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box2.obj": "e8fc2031698548e30327fa5219cf221ea12c12bf4bba316376b365cc8e6969e1",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/ground.obj": "1eedb1ab6eb7dfbc9e058e78b0d0162898aeb5c62b1d11cdceaccac532d1959c",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/plateau.obj": "0223800c05dbd0475cda21dfc5ec9cf085e76c33f4d6420b45c83ffd74c1f078",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/slope.obj": "be5535061a2dc87544afe328aacba4dd4768e8fb1e88dbf79ee53b5fae11491e",
+      "src/unilab/assets/robots/g1/assets/head_link.STL": "005fb67fbd3eff94aa8bf4a6e83238174e9f91b6721f7111594322f223724411",
+      "src/unilab/assets/robots/g1/assets/left_ankle_pitch_link.STL": "d49e3abc6f5b12e532062cd575b87b5ef40cd2a3fc18f54a1ca5bba4f773d51d",
+      "src/unilab/assets/robots/g1/assets/left_ankle_roll_link.STL": "c4092af943141d4d9f74232f3cfa345afc6565f46a077793b8ae0e68b39dc33f",
+      "src/unilab/assets/robots/g1/assets/left_elbow_link.STL": "fa752198accd104d5c4c3a01382e45165b944fbbc5acce085059223324e5bed3",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_palm_link.STL": "23a486b75bd78a9bf03cec25d84d87f97f3dae038cf21a743b6d469b337e4004",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_0_link.STL": "a90c721661c0622685488a3c74d1e122c7da89242d3a1daef75edb83422d05e0",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_1_link.STL": "445c54a45bc13ce36001556f66bc0f49c83cb40321205ae4d676bb2874325684",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_2_link.STL": "3d8dbe5085acfc213d21aa8b0782e89cd79084e9678f3a85fc7b04a86b029db5",
+      "src/unilab/assets/robots/g1/assets/left_hip_pitch_link.STL": "4725168105ee768ee31638ef22b53f6be2d7641bfd7cfefe803488d884776fa4",
+      "src/unilab/assets/robots/g1/assets/left_hip_roll_link.STL": "91f25922ee8a7c3152790051bebad17b4d9cd243569c38fe340285ff93a97acf",
+      "src/unilab/assets/robots/g1/assets/left_hip_yaw_link.STL": "a16d88aa6ddac8083aa7ad55ed317bea44b1fa003d314fba88965b7ed0f3b55b",
+      "src/unilab/assets/robots/g1/assets/left_knee_link.STL": "8d92b9e3d3a636761150bb8025e32514c4602b91c7028d523ee42b3e632de477",
+      "src/unilab/assets/robots/g1/assets/left_rubber_hand.STL": "cff2221a690fa69303f61fce68f2d155c1517b52efb6ca9262dd56e0bc6e70fe",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_pitch_link.STL": "f0d1cfd02fcf0d42f95e678eeca33da3afbcc366ffba5c052847773ec4f31d52",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_roll_link.STL": "fb9df21687773522598dc384f1a2945c7519f11cbc8bd372a49170316d6eee88",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_yaw_link.STL": "1aa97e9748e924336567992181f78c7cd0652fd52a4afcca3df6b2ef6f9e712e",
+      "src/unilab/assets/robots/g1/assets/left_wrist_pitch_link.STL": "b251d8e05047f695d0f536cd78c11973cfa4e78d08cfe82759336cc3471de3a9",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_link.STL": "edc387c9a0ba8c2237e9b296d32531426fabeb6f53e58df45c76106bca74148c",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_rubber_hand.STL": "e81030abd023bd9e4a308ef376d814a2c12d684d8a7670c335bbd5cd7809c909",
+      "src/unilab/assets/robots/g1/assets/left_wrist_yaw_link.STL": "83f8fb3a726bf9613d65dd14f0f447cb918c3c95b3938042a0c9c09749267d3b",
+      "src/unilab/assets/robots/g1/assets/logo_link.STL": "8571a0a19bc4916fa55f91449f51d5fdefd751000054865a842449429d5f155b",
+      "src/unilab/assets/robots/g1/assets/pelvis.STL": "5ba6bbc888e630550140d3c26763f10206da8c8bd30ed886b8ede41c61f57a31",
+      "src/unilab/assets/robots/g1/assets/pelvis_contour_link.STL": "5cc5c2c7a312329e3feeb2b03d3fc09fc29705bd01864f6767e51be959662420",
+      "src/unilab/assets/robots/g1/assets/right_ankle_pitch_link.STL": "15be426539ec1be70246d4d82a168806db64a41301af8b35c197a33348c787a9",
+      "src/unilab/assets/robots/g1/assets/right_ankle_roll_link.STL": "4b66222ea56653e627711b56d0a8949b4920da5df091da0ceb343f54e884e3a5",
+      "src/unilab/assets/robots/g1/assets/right_elbow_link.STL": "1be925d7aa268bb8fddf5362b9173066890c7d32092c05638608126e59d1e2ab",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_palm_link.STL": "86c0b231cc44477d64a6493e5a427ba16617a00738112dd187c652675b086fb9",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_0_link.STL": "544298d0ea1088f5b276a10cc6a6a9e533efdd91594955fdc956c46211d07f83",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_1_link.STL": "0a9a820da8dd10f298778b714f1364216e8a5976f4fd3a05689ea26327d44bf6",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_2_link.STL": "3f1bfb37668e8f61801c8d25f171fa1949e08666be86c67acad7e0079937cc45",
+      "src/unilab/assets/robots/g1/assets/right_hip_pitch_link.STL": "e4f3c99d7f4a7d34eadbef9461fc66e3486cb5442db1ec50c86317d459f1a9c6",
+      "src/unilab/assets/robots/g1/assets/right_hip_roll_link.STL": "4c254ef66a356f492947f360dd931965477b631e3fcc841f91ccc46d945d54f6",
+      "src/unilab/assets/robots/g1/assets/right_hip_yaw_link.STL": "e479c2936ca2057e9eb2f7dff6c189b7419d7b8484dea0b298cbb36a2a6aa668",
+      "src/unilab/assets/robots/g1/assets/right_knee_link.STL": "63c4008449c9bbe701a6e2b557b7a252e90cf3a5abcf54cee46862b9a69f8ec8",
+      "src/unilab/assets/robots/g1/assets/right_rubber_hand.STL": "99533b778bca6246144fa511bb9d4e555e075c641f2a0251e04372869cd99d67",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_pitch_link.STL": "24cdb387e0128dfe602770a81c56cdce3a0181d34d039a11d1aaf8819b7b8c02",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_roll_link.STL": "962b97c48f9ce9e8399f45dd9522e0865d19aa9fd299406b2d475a8fc4a53e81",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_yaw_link.STL": "a0b76489271da0c72461a344c9ffb0f0c6e64f019ea5014c1624886c442a2fe5",
+      "src/unilab/assets/robots/g1/assets/right_wrist_pitch_link.STL": "d22f8f3b3127f15a63e5be1ee273cd5075786c3142f1c3d9f76cbf43d2a26477",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_link.STL": "a7ee9212ff5b94d6cb7f52bb1bbf3f352194d5b598acff74f4c77d340c5b344f",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_rubber_hand.STL": "0729aff1ac4356f9314de13a46906267642e58bc47f0d8a7f17f6590a6242ccf",
+      "src/unilab/assets/robots/g1/assets/right_wrist_yaw_link.STL": "bc9dece2d12509707e0057ba2e48df8f3d56db0c79410212963a25e8a50f61a6",
+      "src/unilab/assets/robots/g1/assets/scene_crawl_slope.xml": "55d6864ba768505baf40a5ca6a4a424bc74c0997d9ddb2e2f0b0ea55eb99d150",
+      "src/unilab/assets/robots/g1/assets/torso_link_23dof_rev_1_0.STL": "3cd0d56fde14b73c1623304684805029971c4f84b596f9914e823ca70a107fd2",
+      "src/unilab/assets/robots/g1/assets/torso_link_rev_1_0.STL": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723",
+      "src/unilab/assets/robots/g1/assets/waist_roll_link_rev_1_0.STL": "b67c347a05abc3e8ddae600d98a082bee273bb39f8e651647708b0a7140a8a97",
+      "src/unilab/assets/robots/g1/assets/waist_yaw_link_rev_1_0.STL": "ec6db442b11f25eed898b5add07940c85d804f300de24dcbd264ccd8be7d554c",
+      "src/unilab/assets/robots/g1/g1.xml": "bb6089243f8fe1c97a6410ccde8754eaa58e5d8e476aca69d790ce501cb4a48e",
+      "src/unilab/assets/robots/g1/g1_23dof.xml": "1008503a142e6babdf8dc123cf711507361768255b765bac8a13a8a9b17ce7cb",
+      "src/unilab/assets/robots/g1/g1_23dof_sphere_hand.xml": "2739e386ef3aa21d0686e3a5728e56a9c8637ad0e1c629e3d96adf9faf0f3b69",
+      "src/unilab/assets/robots/g1/g1_sphere_hand.xml": "fde984441ad264aec9db7d98c00b2176769c504e7e6bd7837198d364fb4f7c39",
+      "src/unilab/assets/robots/g1/locomotion_task.xml": "fff63a58544cc39f5672103b578847565b36d161c1be0850e660d499878759ea",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1.xml": "ac048daf5be81c51f08318cb914887ea63930d4ce98d31beaa90f6a160db8c87",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1_23dof.xml": "71fede06a102a472382bb48b0e86f823f44447e1e8592792905b1d7aeb324eed",
+      "src/unilab/assets/robots/g1/scene_crawl_slope.xml": "7438a09ae46f38f139c779c8e1ae18ac308a0c0ae8f0a97ab1e23f488b8691c2",
+      "src/unilab/assets/robots/g1/scene_flat.xml": "13ce8b2c7706885fa4f041ea8ebb5c2875506512bec6cef02a0455eddb9e4de2",
+      "src/unilab/assets/robots/g1/scene_flat_23dof.xml": "3a13769eaea6900b76713dbe60b73af95cf905b657c004e8d2b4d6d92163c280",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_largebox.xml": "2b13d0636dfa251b1509ccb4fed7986d993f0179f03fad0ef741b4d248f03123",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_wall.xml": "17bb27c623262c20792e74feeb40d4edfc5986034f69379a9468ab789814f8d5",
+      "src/unilab/assets/robots/g1/scene_flat_with_largebox.xml": "481613b54c6a55b00b3029bfb135bcbce62f5b9467dfc443aa5830f695825fec",
+      "src/unilab/assets/robots/g1/scene_flat_with_wall.xml": "dc50e5352b05cfc2c24d73348ab44b95e31f5fa4a6a01956b10ca8a631014fea",
+      "src/unilab/assets/robots/g1/scene_rough.xml": "202a4bc002a4abc2406f8408e6e5db2fd5dd81556c6e109dc5d5bd8f1f1d5d55",
+      "src/unilab/assets/robots/g1/scene_rough_23dof.xml": "1e8baa2404f2cb2257bc97ac93bb64c793a9c007c7326070658279fca5b3cf27"
+    },
+    "packages": {
+      "unilab-rl": "1.2.0",
+      "rsl-rl-lib": "5.0.1",
+      "torch": "2.8.0+cu128",
+      "genesis-world": "1.3.3",
+      "motrixsim-core": "0.8.2"
+    },
+    "historical_audit": {
+      "audit_passed": true,
+      "scope": "native_single_source_final_budget",
+      "run_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/motrix",
+      "source": "motrix",
+      "iterations": 20000,
+      "num_envs": 1024,
+      "transitions_per_iteration": 24576,
+      "total_transitions": 491520000,
+      "optimizer_steps": 400000,
+      "final_checkpoint": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/motrix/model_19999.pt",
+      "final_checkpoint_sha256": "134c3e1ff8348c9a724166f522f87704a2233679daa40f2053fcb1419256cc1c",
+      "normalizer_counts": {
+        "actor": 491520000,
+        "critic": 491520000
+      },
+      "learning_rate": 2.2500000000000005e-05,
+      "evidence_limit": "Saved budgets and learner state; does not prove task or holdout success."
+    }
+  },
+  "isaacsim": {
+    "config": {
+      "algo": {
+        "algo": "ppo",
+        "algo_log_name": "rsl_rl_ppo",
+        "seed": 1,
+        "num_envs": 1024,
+        "num_steps_per_env": 24,
+        "max_iterations": 20000,
+        "save_interval": 500,
+        "empirical_normalization": true,
+        "runner_class_name": "OnPolicyRunner",
+        "obs_groups": {
+          "default": [
+            "policy"
+          ],
+          "actor": [
+            "actor"
+          ],
+          "critic": [
+            "critic"
+          ]
+        },
+        "experiment_name": "test",
+        "run_name": "",
+        "resume": false,
+        "load_run": "-1",
+        "checkpoint": -1,
+        "resume_path": null,
+        "policy": {
+          "init_noise_std": 1.0,
+          "actor_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "critic_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "activation": "elu",
+          "class_name": "ActorCritic"
+        },
+        "algorithm": {
+          "class_name": "uni_rl.algos.rsl_rl_ppo:FinalObservationAwarePPO",
+          "value_loss_coef": 1.0,
+          "use_clipped_value_loss": true,
+          "clip_param": 0.2,
+          "entropy_coef": 0.005,
+          "num_learning_epochs": 5,
+          "num_mini_batches": 4,
+          "learning_rate": 0.001,
+          "schedule": "adaptive",
+          "gamma": 0.99,
+          "lam": 0.95,
+          "desired_kl": 0.01,
+          "target_kl_stop": null,
+          "max_grad_norm": 1.0,
+          "adaptive_kl_beta": 0.9,
+          "adaptive_lr_growth": 1.1,
+          "adaptive_lr_decay": 1.2,
+          "adaptive_lr_update_interval": 5,
+          "metrics_interval": 8,
+          "finite_check_interval": 8,
+          "enable_compile": false,
+          "warmup_strict_iters": 10,
+          "warmup_metrics_interval": 2,
+          "warmup_finite_check_interval": 2,
+          "disable_finite_checks": true
+        }
+      },
+      "training": {
+        "task_name": "G1FlipTracking",
+        "devices": null,
+        "dp_collector_cpu_ids": null,
+        "device": "cuda:0",
+        "logger": "tensorboard",
+        "wandb_project": "unilab",
+        "wandb_entity": null,
+        "wandb_group": null,
+        "wandb_job_type": null,
+        "wandb_name": null,
+        "wandb_tags": [],
+        "wandb_notes": null,
+        "wandb_mode": null,
+        "sim_backend": "isaacsim",
+        "nan_guard": {
+          "enabled": true,
+          "buffer_size": 100,
+          "max_envs_to_dump": 5,
+          "output_dir": null
+        },
+        "play_only": false,
+        "no_play": true,
+        "sim2sim_strict": true,
+        "play_render_mode": "auto",
+        "play_env_num": 16,
+        "render_spacing": 1.0,
+        "play_steps": 1000,
+        "cam_distance": 6.0,
+        "cam_elevation": -20.0,
+        "cam_azimuth": 90.0,
+        "cam_lookat": null,
+        "cam_tracking": false,
+        "cam_tracking_env_idx": 0,
+        "cam_tracking_extra_envs": 2,
+        "log_root": null,
+        "num_timesteps": null,
+        "log_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacsim"
+      },
+      "interactive": {
+        "action_mode": "zero",
+        "policy_obs_mode": "auto",
+        "show_target_bodies": false,
+        "show_reward_debug": false,
+        "target_show_axes": false,
+        "target_body_names": "",
+        "target_max_bodies": 0,
+        "target_marker_radius": 0.02,
+        "target_axis_length": 0.08,
+        "target_marker_alpha": 0.75,
+        "reward_debug_show_velocity": false,
+        "reward_debug_lin_vel_scale": 0.08,
+        "reward_debug_ang_vel_scale": 0.05,
+        "reward_debug_show_connectors": false,
+        "reward_debug_show_global_anchor": false,
+        "camera_follow_body": true,
+        "camera_focus_body_name": "",
+        "camera_height_offset": 0.15,
+        "camera_distance": null,
+        "camera_elevation": null,
+        "camera_azimuth": null,
+        "use_env_visual_model": true,
+        "speed": 1.0,
+        "start_paused": false,
+        "keyboard": false,
+        "keyboard_step_lin": 0.1,
+        "keyboard_step_ang": 0.2
+      },
+      "viser": {
+        "port": 8080,
+        "env_idx": 0,
+        "display_mode": "all",
+        "max_envs": 16
+      },
+      "env": {
+        "scene": {
+          "model_file": "src/unilab/assets/robots/g1/scene_flat.xml",
+          "default_keyframe_name": "stand",
+          "entities": {
+            "robot": {
+              "root_body_name": "pelvis",
+              "joint_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "actuator_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "geom_names": null
+            }
+          }
+        },
+        "sim_dt": 0.005,
+        "ctrl_dt": 0.02,
+        "max_episode_seconds": 10.0,
+        "observations": {
+          "actor": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              }
+            }
+          },
+          "critic": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              },
+              "body_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "body_ori": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "joint_pos": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionJointPositionActionCfg",
+            "entity_name": "robot",
+            "actuator_names": [
+              ".*"
+            ],
+            "scale": {
+              ".*_(hip_pitch|hip_yaw)_joint": 0.5475464629911068,
+              ".*_(hip_roll|knee)_joint": 0.35066146637882434,
+              ".*_ankle_(pitch|roll)_joint": 0.43857731392336724,
+              "waist_yaw_joint": 0.5475464629911068,
+              "waist_(roll|pitch)_joint": 0.43857731392336724,
+              ".*_(shoulder_(pitch|roll|yaw)|elbow|wrist_roll)_joint": 0.43857731392336724,
+              ".*_wrist_(pitch|yaw)_joint": 0.07450087032950714
+            },
+            "use_default_offset": true,
+            "command_name": "motion"
+          }
+        },
+        "commands": {
+          "motion": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionCommandCfg",
+            "entity_name": "robot",
+            "resampling_time_range": [
+              1000000000.0,
+              1000000000.0
+            ],
+            "params": {
+              "motion_file": "motions/g1/flip_360_001__A304.npz",
+              "anchor_body_name": "torso_link",
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "sampling_mode": "start",
+              "sampling_start_ratio": 0.0,
+              "truncate_on_clip_end": false,
+              "pose_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "velocity_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "joint_position_range": [
+                0.0,
+                0.0
+              ],
+              "joint_default_position_range": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "terminations": {
+          "time_out": {
+            "func": "unilab.envs.mdp.time_out",
+            "time_out": true
+          },
+          "anchor_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5
+            }
+          },
+          "anchor_ori": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_ori",
+            "params": {
+              "command_name": "motion",
+              "threshold": 1000000000.0,
+              "asset_cfg": {
+                "_target_": "unilab.managers.SceneEntityCfg",
+                "name": "robot"
+              }
+            }
+          },
+          "ee_body_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_motion_body_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5,
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link",
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ]
+            }
+          },
+          "undesired_contacts": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_undesired_body_contacts",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.05,
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link"
+              ]
+            }
+          }
+        },
+        "policy_observation_group": "actor",
+        "critic_observation_group": "critic",
+        "motrix_disable_self_collision": true,
+        "genesis_enable_self_collision": false,
+        "isaacsim_device_id": 0,
+        "isaacsim_worker_timeout_s": 180.0,
+        "seed": 2
+      },
+      "reward": {
+        "motion_global_root_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_position_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_global_root_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_orientation_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_body_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_orientation_error_exp",
+          "weight": 1.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_lin_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_linear_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "motion_body_ang_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_angular_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 3.14
+          }
+        },
+        "motion_joint_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_position_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.2
+          }
+        },
+        "motion_joint_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_velocity_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "action_rate_l2": {
+          "func": "unilab.envs.mdp.action_rate_l2",
+          "weight": -0.005
+        },
+        "joint_limit": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.joint_pos_limits",
+          "weight": -10.0,
+          "params": {
+            "asset_cfg": {
+              "_target_": "unilab.managers.SceneEntityCfg",
+              "name": "robot",
+              "joint_names": ".*"
+            }
+          }
+        },
+        "motion_ee_body_pos_z": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_z_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3,
+            "body_names": [
+              "left_ankle_roll_link",
+              "right_ankle_roll_link",
+              "left_wrist_yaw_link",
+              "right_wrist_yaw_link"
+            ]
+          }
+        },
+        "undesired_contacts": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.undesired_body_contacts",
+          "weight": -0.1,
+          "params": {
+            "command_name": "motion",
+            "threshold": 0.05,
+            "body_names": [
+              "pelvis",
+              "left_hip_roll_link",
+              "left_knee_link",
+              "right_hip_roll_link",
+              "right_knee_link",
+              "torso_link",
+              "left_shoulder_roll_link",
+              "left_elbow_link",
+              "right_shoulder_roll_link",
+              "right_elbow_link"
+            ]
+          }
+        }
+      },
+      "play_profile": {
+        "enabled": true,
+        "env": {
+          "render_spacing": 2.0
+        }
+      }
+    },
+    "assets": {
+      "src/unilab/assets/motions/g1/flip_360_001__A304.npz": "bd6785de42e569deb0f680057c0ff62449d3d99058e3c0c1ce437c373e8b604d",
+      "src/unilab/assets/robots/g1/assets/box_tracking/largebox.obj": "dbcc11281f62e9226f49165252375080d2e490e5a3f0ab6ba917acbd8f7abc1c",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box1.obj": "7cce9d9c4d4c90c0c486f0b198f881fd45893e812a6e5bdfcf7d9704d45f193b",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box2.obj": "e8fc2031698548e30327fa5219cf221ea12c12bf4bba316376b365cc8e6969e1",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/ground.obj": "1eedb1ab6eb7dfbc9e058e78b0d0162898aeb5c62b1d11cdceaccac532d1959c",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/plateau.obj": "0223800c05dbd0475cda21dfc5ec9cf085e76c33f4d6420b45c83ffd74c1f078",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/slope.obj": "be5535061a2dc87544afe328aacba4dd4768e8fb1e88dbf79ee53b5fae11491e",
+      "src/unilab/assets/robots/g1/assets/head_link.STL": "005fb67fbd3eff94aa8bf4a6e83238174e9f91b6721f7111594322f223724411",
+      "src/unilab/assets/robots/g1/assets/left_ankle_pitch_link.STL": "d49e3abc6f5b12e532062cd575b87b5ef40cd2a3fc18f54a1ca5bba4f773d51d",
+      "src/unilab/assets/robots/g1/assets/left_ankle_roll_link.STL": "c4092af943141d4d9f74232f3cfa345afc6565f46a077793b8ae0e68b39dc33f",
+      "src/unilab/assets/robots/g1/assets/left_elbow_link.STL": "fa752198accd104d5c4c3a01382e45165b944fbbc5acce085059223324e5bed3",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_palm_link.STL": "23a486b75bd78a9bf03cec25d84d87f97f3dae038cf21a743b6d469b337e4004",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_0_link.STL": "a90c721661c0622685488a3c74d1e122c7da89242d3a1daef75edb83422d05e0",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_1_link.STL": "445c54a45bc13ce36001556f66bc0f49c83cb40321205ae4d676bb2874325684",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_2_link.STL": "3d8dbe5085acfc213d21aa8b0782e89cd79084e9678f3a85fc7b04a86b029db5",
+      "src/unilab/assets/robots/g1/assets/left_hip_pitch_link.STL": "4725168105ee768ee31638ef22b53f6be2d7641bfd7cfefe803488d884776fa4",
+      "src/unilab/assets/robots/g1/assets/left_hip_roll_link.STL": "91f25922ee8a7c3152790051bebad17b4d9cd243569c38fe340285ff93a97acf",
+      "src/unilab/assets/robots/g1/assets/left_hip_yaw_link.STL": "a16d88aa6ddac8083aa7ad55ed317bea44b1fa003d314fba88965b7ed0f3b55b",
+      "src/unilab/assets/robots/g1/assets/left_knee_link.STL": "8d92b9e3d3a636761150bb8025e32514c4602b91c7028d523ee42b3e632de477",
+      "src/unilab/assets/robots/g1/assets/left_rubber_hand.STL": "cff2221a690fa69303f61fce68f2d155c1517b52efb6ca9262dd56e0bc6e70fe",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_pitch_link.STL": "f0d1cfd02fcf0d42f95e678eeca33da3afbcc366ffba5c052847773ec4f31d52",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_roll_link.STL": "fb9df21687773522598dc384f1a2945c7519f11cbc8bd372a49170316d6eee88",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_yaw_link.STL": "1aa97e9748e924336567992181f78c7cd0652fd52a4afcca3df6b2ef6f9e712e",
+      "src/unilab/assets/robots/g1/assets/left_wrist_pitch_link.STL": "b251d8e05047f695d0f536cd78c11973cfa4e78d08cfe82759336cc3471de3a9",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_link.STL": "edc387c9a0ba8c2237e9b296d32531426fabeb6f53e58df45c76106bca74148c",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_rubber_hand.STL": "e81030abd023bd9e4a308ef376d814a2c12d684d8a7670c335bbd5cd7809c909",
+      "src/unilab/assets/robots/g1/assets/left_wrist_yaw_link.STL": "83f8fb3a726bf9613d65dd14f0f447cb918c3c95b3938042a0c9c09749267d3b",
+      "src/unilab/assets/robots/g1/assets/logo_link.STL": "8571a0a19bc4916fa55f91449f51d5fdefd751000054865a842449429d5f155b",
+      "src/unilab/assets/robots/g1/assets/pelvis.STL": "5ba6bbc888e630550140d3c26763f10206da8c8bd30ed886b8ede41c61f57a31",
+      "src/unilab/assets/robots/g1/assets/pelvis_contour_link.STL": "5cc5c2c7a312329e3feeb2b03d3fc09fc29705bd01864f6767e51be959662420",
+      "src/unilab/assets/robots/g1/assets/right_ankle_pitch_link.STL": "15be426539ec1be70246d4d82a168806db64a41301af8b35c197a33348c787a9",
+      "src/unilab/assets/robots/g1/assets/right_ankle_roll_link.STL": "4b66222ea56653e627711b56d0a8949b4920da5df091da0ceb343f54e884e3a5",
+      "src/unilab/assets/robots/g1/assets/right_elbow_link.STL": "1be925d7aa268bb8fddf5362b9173066890c7d32092c05638608126e59d1e2ab",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_palm_link.STL": "86c0b231cc44477d64a6493e5a427ba16617a00738112dd187c652675b086fb9",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_0_link.STL": "544298d0ea1088f5b276a10cc6a6a9e533efdd91594955fdc956c46211d07f83",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_1_link.STL": "0a9a820da8dd10f298778b714f1364216e8a5976f4fd3a05689ea26327d44bf6",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_2_link.STL": "3f1bfb37668e8f61801c8d25f171fa1949e08666be86c67acad7e0079937cc45",
+      "src/unilab/assets/robots/g1/assets/right_hip_pitch_link.STL": "e4f3c99d7f4a7d34eadbef9461fc66e3486cb5442db1ec50c86317d459f1a9c6",
+      "src/unilab/assets/robots/g1/assets/right_hip_roll_link.STL": "4c254ef66a356f492947f360dd931965477b631e3fcc841f91ccc46d945d54f6",
+      "src/unilab/assets/robots/g1/assets/right_hip_yaw_link.STL": "e479c2936ca2057e9eb2f7dff6c189b7419d7b8484dea0b298cbb36a2a6aa668",
+      "src/unilab/assets/robots/g1/assets/right_knee_link.STL": "63c4008449c9bbe701a6e2b557b7a252e90cf3a5abcf54cee46862b9a69f8ec8",
+      "src/unilab/assets/robots/g1/assets/right_rubber_hand.STL": "99533b778bca6246144fa511bb9d4e555e075c641f2a0251e04372869cd99d67",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_pitch_link.STL": "24cdb387e0128dfe602770a81c56cdce3a0181d34d039a11d1aaf8819b7b8c02",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_roll_link.STL": "962b97c48f9ce9e8399f45dd9522e0865d19aa9fd299406b2d475a8fc4a53e81",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_yaw_link.STL": "a0b76489271da0c72461a344c9ffb0f0c6e64f019ea5014c1624886c442a2fe5",
+      "src/unilab/assets/robots/g1/assets/right_wrist_pitch_link.STL": "d22f8f3b3127f15a63e5be1ee273cd5075786c3142f1c3d9f76cbf43d2a26477",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_link.STL": "a7ee9212ff5b94d6cb7f52bb1bbf3f352194d5b598acff74f4c77d340c5b344f",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_rubber_hand.STL": "0729aff1ac4356f9314de13a46906267642e58bc47f0d8a7f17f6590a6242ccf",
+      "src/unilab/assets/robots/g1/assets/right_wrist_yaw_link.STL": "bc9dece2d12509707e0057ba2e48df8f3d56db0c79410212963a25e8a50f61a6",
+      "src/unilab/assets/robots/g1/assets/scene_crawl_slope.xml": "55d6864ba768505baf40a5ca6a4a424bc74c0997d9ddb2e2f0b0ea55eb99d150",
+      "src/unilab/assets/robots/g1/assets/torso_link_23dof_rev_1_0.STL": "3cd0d56fde14b73c1623304684805029971c4f84b596f9914e823ca70a107fd2",
+      "src/unilab/assets/robots/g1/assets/torso_link_rev_1_0.STL": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723",
+      "src/unilab/assets/robots/g1/assets/waist_roll_link_rev_1_0.STL": "b67c347a05abc3e8ddae600d98a082bee273bb39f8e651647708b0a7140a8a97",
+      "src/unilab/assets/robots/g1/assets/waist_yaw_link_rev_1_0.STL": "ec6db442b11f25eed898b5add07940c85d804f300de24dcbd264ccd8be7d554c",
+      "src/unilab/assets/robots/g1/g1.xml": "bb6089243f8fe1c97a6410ccde8754eaa58e5d8e476aca69d790ce501cb4a48e",
+      "src/unilab/assets/robots/g1/g1_23dof.xml": "1008503a142e6babdf8dc123cf711507361768255b765bac8a13a8a9b17ce7cb",
+      "src/unilab/assets/robots/g1/g1_23dof_sphere_hand.xml": "2739e386ef3aa21d0686e3a5728e56a9c8637ad0e1c629e3d96adf9faf0f3b69",
+      "src/unilab/assets/robots/g1/g1_sphere_hand.xml": "fde984441ad264aec9db7d98c00b2176769c504e7e6bd7837198d364fb4f7c39",
+      "src/unilab/assets/robots/g1/locomotion_task.xml": "fff63a58544cc39f5672103b578847565b36d161c1be0850e660d499878759ea",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1.xml": "ac048daf5be81c51f08318cb914887ea63930d4ce98d31beaa90f6a160db8c87",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1_23dof.xml": "71fede06a102a472382bb48b0e86f823f44447e1e8592792905b1d7aeb324eed",
+      "src/unilab/assets/robots/g1/scene_crawl_slope.xml": "7438a09ae46f38f139c779c8e1ae18ac308a0c0ae8f0a97ab1e23f488b8691c2",
+      "src/unilab/assets/robots/g1/scene_flat.xml": "13ce8b2c7706885fa4f041ea8ebb5c2875506512bec6cef02a0455eddb9e4de2",
+      "src/unilab/assets/robots/g1/scene_flat_23dof.xml": "3a13769eaea6900b76713dbe60b73af95cf905b657c004e8d2b4d6d92163c280",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_largebox.xml": "2b13d0636dfa251b1509ccb4fed7986d993f0179f03fad0ef741b4d248f03123",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_wall.xml": "17bb27c623262c20792e74feeb40d4edfc5986034f69379a9468ab789814f8d5",
+      "src/unilab/assets/robots/g1/scene_flat_with_largebox.xml": "481613b54c6a55b00b3029bfb135bcbce62f5b9467dfc443aa5830f695825fec",
+      "src/unilab/assets/robots/g1/scene_flat_with_wall.xml": "dc50e5352b05cfc2c24d73348ab44b95e31f5fa4a6a01956b10ca8a631014fea",
+      "src/unilab/assets/robots/g1/scene_rough.xml": "202a4bc002a4abc2406f8408e6e5db2fd5dd81556c6e109dc5d5bd8f1f1d5d55",
+      "src/unilab/assets/robots/g1/scene_rough_23dof.xml": "1e8baa2404f2cb2257bc97ac93bb64c793a9c007c7326070658279fca5b3cf27"
+    },
+    "packages": {
+      "unilab-rl": "1.2.0",
+      "rsl-rl-lib": "5.0.1",
+      "torch": "2.8.0+cu128",
+      "genesis-world": "1.3.3",
+      "motrixsim-core": "0.8.2"
+    },
+    "historical_audit": {
+      "audit_passed": true,
+      "scope": "native_single_source_final_budget",
+      "run_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacsim",
+      "source": "isaacsim",
+      "iterations": 20000,
+      "num_envs": 1024,
+      "transitions_per_iteration": 24576,
+      "total_transitions": 491520000,
+      "optimizer_steps": 400000,
+      "final_checkpoint": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacsim/model_19999.pt",
+      "final_checkpoint_sha256": "e874aea63ee66740a9aaa7dc57927181e10c7598a0327894e42c892d8619a4cc",
+      "normalizer_counts": {
+        "actor": 491520000,
+        "critic": 491520000
+      },
+      "learning_rate": 1e-05,
+      "evidence_limit": "Saved budgets and learner state; does not prove task or holdout success."
+    }
+  },
+  "isaacgym": {
+    "config": {
+      "algo": {
+        "algo": "ppo",
+        "algo_log_name": "rsl_rl_ppo",
+        "seed": 1,
+        "num_envs": 1024,
+        "num_steps_per_env": 24,
+        "max_iterations": 20000,
+        "save_interval": 500,
+        "empirical_normalization": true,
+        "runner_class_name": "OnPolicyRunner",
+        "obs_groups": {
+          "default": [
+            "policy"
+          ],
+          "actor": [
+            "actor"
+          ],
+          "critic": [
+            "critic"
+          ]
+        },
+        "experiment_name": "test",
+        "run_name": "",
+        "resume": false,
+        "load_run": "-1",
+        "checkpoint": -1,
+        "resume_path": null,
+        "policy": {
+          "init_noise_std": 1.0,
+          "actor_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "critic_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "activation": "elu",
+          "class_name": "ActorCritic"
+        },
+        "algorithm": {
+          "class_name": "uni_rl.algos.rsl_rl_ppo:FinalObservationAwarePPO",
+          "value_loss_coef": 1.0,
+          "use_clipped_value_loss": true,
+          "clip_param": 0.2,
+          "entropy_coef": 0.005,
+          "num_learning_epochs": 5,
+          "num_mini_batches": 4,
+          "learning_rate": 0.001,
+          "schedule": "adaptive",
+          "gamma": 0.99,
+          "lam": 0.95,
+          "desired_kl": 0.01,
+          "target_kl_stop": null,
+          "max_grad_norm": 1.0,
+          "adaptive_kl_beta": 0.9,
+          "adaptive_lr_growth": 1.1,
+          "adaptive_lr_decay": 1.2,
+          "adaptive_lr_update_interval": 5,
+          "metrics_interval": 8,
+          "finite_check_interval": 8,
+          "enable_compile": false,
+          "warmup_strict_iters": 10,
+          "warmup_metrics_interval": 2,
+          "warmup_finite_check_interval": 2,
+          "disable_finite_checks": true
+        }
+      },
+      "training": {
+        "task_name": "G1FlipTracking",
+        "devices": null,
+        "dp_collector_cpu_ids": null,
+        "device": "cuda:0",
+        "logger": "tensorboard",
+        "wandb_project": "unilab",
+        "wandb_entity": null,
+        "wandb_group": null,
+        "wandb_job_type": null,
+        "wandb_name": null,
+        "wandb_tags": [],
+        "wandb_notes": null,
+        "wandb_mode": null,
+        "sim_backend": "isaacgym",
+        "nan_guard": {
+          "enabled": true,
+          "buffer_size": 100,
+          "max_envs_to_dump": 5,
+          "output_dir": null
+        },
+        "play_only": false,
+        "no_play": true,
+        "sim2sim_strict": true,
+        "play_render_mode": "auto",
+        "play_env_num": 16,
+        "render_spacing": 1.0,
+        "play_steps": 1000,
+        "cam_distance": 6.0,
+        "cam_elevation": -20.0,
+        "cam_azimuth": 90.0,
+        "cam_lookat": null,
+        "cam_tracking": false,
+        "cam_tracking_env_idx": 0,
+        "cam_tracking_extra_envs": 2,
+        "log_root": null,
+        "num_timesteps": null,
+        "log_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacgym"
+      },
+      "interactive": {
+        "action_mode": "zero",
+        "policy_obs_mode": "auto",
+        "show_target_bodies": false,
+        "show_reward_debug": false,
+        "target_show_axes": false,
+        "target_body_names": "",
+        "target_max_bodies": 0,
+        "target_marker_radius": 0.02,
+        "target_axis_length": 0.08,
+        "target_marker_alpha": 0.75,
+        "reward_debug_show_velocity": false,
+        "reward_debug_lin_vel_scale": 0.08,
+        "reward_debug_ang_vel_scale": 0.05,
+        "reward_debug_show_connectors": false,
+        "reward_debug_show_global_anchor": false,
+        "camera_follow_body": true,
+        "camera_focus_body_name": "",
+        "camera_height_offset": 0.15,
+        "camera_distance": null,
+        "camera_elevation": null,
+        "camera_azimuth": null,
+        "use_env_visual_model": true,
+        "speed": 1.0,
+        "start_paused": false,
+        "keyboard": false,
+        "keyboard_step_lin": 0.1,
+        "keyboard_step_ang": 0.2
+      },
+      "viser": {
+        "port": 8080,
+        "env_idx": 0,
+        "display_mode": "all",
+        "max_envs": 16
+      },
+      "env": {
+        "scene": {
+          "model_file": "src/unilab/assets/robots/g1/scene_flat.xml",
+          "default_keyframe_name": "stand",
+          "entities": {
+            "robot": {
+              "root_body_name": "pelvis",
+              "joint_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "actuator_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "geom_names": null
+            }
+          }
+        },
+        "sim_dt": 0.005,
+        "ctrl_dt": 0.02,
+        "max_episode_seconds": 10.0,
+        "observations": {
+          "actor": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              }
+            }
+          },
+          "critic": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              },
+              "body_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "body_ori": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "joint_pos": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionJointPositionActionCfg",
+            "entity_name": "robot",
+            "actuator_names": [
+              ".*"
+            ],
+            "scale": {
+              ".*_(hip_pitch|hip_yaw)_joint": 0.5475464629911068,
+              ".*_(hip_roll|knee)_joint": 0.35066146637882434,
+              ".*_ankle_(pitch|roll)_joint": 0.43857731392336724,
+              "waist_yaw_joint": 0.5475464629911068,
+              "waist_(roll|pitch)_joint": 0.43857731392336724,
+              ".*_(shoulder_(pitch|roll|yaw)|elbow|wrist_roll)_joint": 0.43857731392336724,
+              ".*_wrist_(pitch|yaw)_joint": 0.07450087032950714
+            },
+            "use_default_offset": true,
+            "command_name": "motion"
+          }
+        },
+        "commands": {
+          "motion": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionCommandCfg",
+            "entity_name": "robot",
+            "resampling_time_range": [
+              1000000000.0,
+              1000000000.0
+            ],
+            "params": {
+              "motion_file": "motions/g1/flip_360_001__A304.npz",
+              "anchor_body_name": "torso_link",
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "sampling_mode": "start",
+              "sampling_start_ratio": 0.0,
+              "truncate_on_clip_end": false,
+              "pose_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "velocity_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "joint_position_range": [
+                0.0,
+                0.0
+              ],
+              "joint_default_position_range": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "terminations": {
+          "time_out": {
+            "func": "unilab.envs.mdp.time_out",
+            "time_out": true
+          },
+          "anchor_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5
+            }
+          },
+          "anchor_ori": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_ori",
+            "params": {
+              "command_name": "motion",
+              "threshold": 1000000000.0,
+              "asset_cfg": {
+                "_target_": "unilab.managers.SceneEntityCfg",
+                "name": "robot"
+              }
+            }
+          },
+          "ee_body_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_motion_body_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5,
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link",
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ]
+            }
+          },
+          "undesired_contacts": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_undesired_body_contacts",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.05,
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link"
+              ]
+            }
+          }
+        },
+        "policy_observation_group": "actor",
+        "critic_observation_group": "critic",
+        "motrix_disable_self_collision": true,
+        "genesis_enable_self_collision": false,
+        "isaacgym_device_id": 0,
+        "seed": 3
+      },
+      "reward": {
+        "motion_global_root_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_position_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_global_root_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_orientation_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_body_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_orientation_error_exp",
+          "weight": 1.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_lin_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_linear_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "motion_body_ang_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_angular_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 3.14
+          }
+        },
+        "motion_joint_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_position_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.2
+          }
+        },
+        "motion_joint_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_velocity_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "action_rate_l2": {
+          "func": "unilab.envs.mdp.action_rate_l2",
+          "weight": -0.005
+        },
+        "joint_limit": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.joint_pos_limits",
+          "weight": -10.0,
+          "params": {
+            "asset_cfg": {
+              "_target_": "unilab.managers.SceneEntityCfg",
+              "name": "robot",
+              "joint_names": ".*"
+            }
+          }
+        },
+        "motion_ee_body_pos_z": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_z_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3,
+            "body_names": [
+              "left_ankle_roll_link",
+              "right_ankle_roll_link",
+              "left_wrist_yaw_link",
+              "right_wrist_yaw_link"
+            ]
+          }
+        },
+        "undesired_contacts": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.undesired_body_contacts",
+          "weight": -0.1,
+          "params": {
+            "command_name": "motion",
+            "threshold": 0.05,
+            "body_names": [
+              "pelvis",
+              "left_hip_roll_link",
+              "left_knee_link",
+              "right_hip_roll_link",
+              "right_knee_link",
+              "torso_link",
+              "left_shoulder_roll_link",
+              "left_elbow_link",
+              "right_shoulder_roll_link",
+              "right_elbow_link"
+            ]
+          }
+        }
+      },
+      "play_profile": {
+        "enabled": true,
+        "env": {
+          "render_spacing": 2.0
+        }
+      }
+    },
+    "assets": {
+      "src/unilab/assets/motions/g1/flip_360_001__A304.npz": "bd6785de42e569deb0f680057c0ff62449d3d99058e3c0c1ce437c373e8b604d",
+      "src/unilab/assets/robots/g1/assets/box_tracking/largebox.obj": "dbcc11281f62e9226f49165252375080d2e490e5a3f0ab6ba917acbd8f7abc1c",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box1.obj": "7cce9d9c4d4c90c0c486f0b198f881fd45893e812a6e5bdfcf7d9704d45f193b",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box2.obj": "e8fc2031698548e30327fa5219cf221ea12c12bf4bba316376b365cc8e6969e1",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/ground.obj": "1eedb1ab6eb7dfbc9e058e78b0d0162898aeb5c62b1d11cdceaccac532d1959c",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/plateau.obj": "0223800c05dbd0475cda21dfc5ec9cf085e76c33f4d6420b45c83ffd74c1f078",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/slope.obj": "be5535061a2dc87544afe328aacba4dd4768e8fb1e88dbf79ee53b5fae11491e",
+      "src/unilab/assets/robots/g1/assets/head_link.STL": "005fb67fbd3eff94aa8bf4a6e83238174e9f91b6721f7111594322f223724411",
+      "src/unilab/assets/robots/g1/assets/left_ankle_pitch_link.STL": "d49e3abc6f5b12e532062cd575b87b5ef40cd2a3fc18f54a1ca5bba4f773d51d",
+      "src/unilab/assets/robots/g1/assets/left_ankle_roll_link.STL": "c4092af943141d4d9f74232f3cfa345afc6565f46a077793b8ae0e68b39dc33f",
+      "src/unilab/assets/robots/g1/assets/left_elbow_link.STL": "fa752198accd104d5c4c3a01382e45165b944fbbc5acce085059223324e5bed3",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_palm_link.STL": "23a486b75bd78a9bf03cec25d84d87f97f3dae038cf21a743b6d469b337e4004",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_0_link.STL": "a90c721661c0622685488a3c74d1e122c7da89242d3a1daef75edb83422d05e0",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_1_link.STL": "445c54a45bc13ce36001556f66bc0f49c83cb40321205ae4d676bb2874325684",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_2_link.STL": "3d8dbe5085acfc213d21aa8b0782e89cd79084e9678f3a85fc7b04a86b029db5",
+      "src/unilab/assets/robots/g1/assets/left_hip_pitch_link.STL": "4725168105ee768ee31638ef22b53f6be2d7641bfd7cfefe803488d884776fa4",
+      "src/unilab/assets/robots/g1/assets/left_hip_roll_link.STL": "91f25922ee8a7c3152790051bebad17b4d9cd243569c38fe340285ff93a97acf",
+      "src/unilab/assets/robots/g1/assets/left_hip_yaw_link.STL": "a16d88aa6ddac8083aa7ad55ed317bea44b1fa003d314fba88965b7ed0f3b55b",
+      "src/unilab/assets/robots/g1/assets/left_knee_link.STL": "8d92b9e3d3a636761150bb8025e32514c4602b91c7028d523ee42b3e632de477",
+      "src/unilab/assets/robots/g1/assets/left_rubber_hand.STL": "cff2221a690fa69303f61fce68f2d155c1517b52efb6ca9262dd56e0bc6e70fe",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_pitch_link.STL": "f0d1cfd02fcf0d42f95e678eeca33da3afbcc366ffba5c052847773ec4f31d52",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_roll_link.STL": "fb9df21687773522598dc384f1a2945c7519f11cbc8bd372a49170316d6eee88",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_yaw_link.STL": "1aa97e9748e924336567992181f78c7cd0652fd52a4afcca3df6b2ef6f9e712e",
+      "src/unilab/assets/robots/g1/assets/left_wrist_pitch_link.STL": "b251d8e05047f695d0f536cd78c11973cfa4e78d08cfe82759336cc3471de3a9",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_link.STL": "edc387c9a0ba8c2237e9b296d32531426fabeb6f53e58df45c76106bca74148c",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_rubber_hand.STL": "e81030abd023bd9e4a308ef376d814a2c12d684d8a7670c335bbd5cd7809c909",
+      "src/unilab/assets/robots/g1/assets/left_wrist_yaw_link.STL": "83f8fb3a726bf9613d65dd14f0f447cb918c3c95b3938042a0c9c09749267d3b",
+      "src/unilab/assets/robots/g1/assets/logo_link.STL": "8571a0a19bc4916fa55f91449f51d5fdefd751000054865a842449429d5f155b",
+      "src/unilab/assets/robots/g1/assets/pelvis.STL": "5ba6bbc888e630550140d3c26763f10206da8c8bd30ed886b8ede41c61f57a31",
+      "src/unilab/assets/robots/g1/assets/pelvis_contour_link.STL": "5cc5c2c7a312329e3feeb2b03d3fc09fc29705bd01864f6767e51be959662420",
+      "src/unilab/assets/robots/g1/assets/right_ankle_pitch_link.STL": "15be426539ec1be70246d4d82a168806db64a41301af8b35c197a33348c787a9",
+      "src/unilab/assets/robots/g1/assets/right_ankle_roll_link.STL": "4b66222ea56653e627711b56d0a8949b4920da5df091da0ceb343f54e884e3a5",
+      "src/unilab/assets/robots/g1/assets/right_elbow_link.STL": "1be925d7aa268bb8fddf5362b9173066890c7d32092c05638608126e59d1e2ab",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_palm_link.STL": "86c0b231cc44477d64a6493e5a427ba16617a00738112dd187c652675b086fb9",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_0_link.STL": "544298d0ea1088f5b276a10cc6a6a9e533efdd91594955fdc956c46211d07f83",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_1_link.STL": "0a9a820da8dd10f298778b714f1364216e8a5976f4fd3a05689ea26327d44bf6",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_2_link.STL": "3f1bfb37668e8f61801c8d25f171fa1949e08666be86c67acad7e0079937cc45",
+      "src/unilab/assets/robots/g1/assets/right_hip_pitch_link.STL": "e4f3c99d7f4a7d34eadbef9461fc66e3486cb5442db1ec50c86317d459f1a9c6",
+      "src/unilab/assets/robots/g1/assets/right_hip_roll_link.STL": "4c254ef66a356f492947f360dd931965477b631e3fcc841f91ccc46d945d54f6",
+      "src/unilab/assets/robots/g1/assets/right_hip_yaw_link.STL": "e479c2936ca2057e9eb2f7dff6c189b7419d7b8484dea0b298cbb36a2a6aa668",
+      "src/unilab/assets/robots/g1/assets/right_knee_link.STL": "63c4008449c9bbe701a6e2b557b7a252e90cf3a5abcf54cee46862b9a69f8ec8",
+      "src/unilab/assets/robots/g1/assets/right_rubber_hand.STL": "99533b778bca6246144fa511bb9d4e555e075c641f2a0251e04372869cd99d67",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_pitch_link.STL": "24cdb387e0128dfe602770a81c56cdce3a0181d34d039a11d1aaf8819b7b8c02",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_roll_link.STL": "962b97c48f9ce9e8399f45dd9522e0865d19aa9fd299406b2d475a8fc4a53e81",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_yaw_link.STL": "a0b76489271da0c72461a344c9ffb0f0c6e64f019ea5014c1624886c442a2fe5",
+      "src/unilab/assets/robots/g1/assets/right_wrist_pitch_link.STL": "d22f8f3b3127f15a63e5be1ee273cd5075786c3142f1c3d9f76cbf43d2a26477",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_link.STL": "a7ee9212ff5b94d6cb7f52bb1bbf3f352194d5b598acff74f4c77d340c5b344f",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_rubber_hand.STL": "0729aff1ac4356f9314de13a46906267642e58bc47f0d8a7f17f6590a6242ccf",
+      "src/unilab/assets/robots/g1/assets/right_wrist_yaw_link.STL": "bc9dece2d12509707e0057ba2e48df8f3d56db0c79410212963a25e8a50f61a6",
+      "src/unilab/assets/robots/g1/assets/scene_crawl_slope.xml": "55d6864ba768505baf40a5ca6a4a424bc74c0997d9ddb2e2f0b0ea55eb99d150",
+      "src/unilab/assets/robots/g1/assets/torso_link_23dof_rev_1_0.STL": "3cd0d56fde14b73c1623304684805029971c4f84b596f9914e823ca70a107fd2",
+      "src/unilab/assets/robots/g1/assets/torso_link_rev_1_0.STL": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723",
+      "src/unilab/assets/robots/g1/assets/waist_roll_link_rev_1_0.STL": "b67c347a05abc3e8ddae600d98a082bee273bb39f8e651647708b0a7140a8a97",
+      "src/unilab/assets/robots/g1/assets/waist_yaw_link_rev_1_0.STL": "ec6db442b11f25eed898b5add07940c85d804f300de24dcbd264ccd8be7d554c",
+      "src/unilab/assets/robots/g1/g1.xml": "bb6089243f8fe1c97a6410ccde8754eaa58e5d8e476aca69d790ce501cb4a48e",
+      "src/unilab/assets/robots/g1/g1_23dof.xml": "1008503a142e6babdf8dc123cf711507361768255b765bac8a13a8a9b17ce7cb",
+      "src/unilab/assets/robots/g1/g1_23dof_sphere_hand.xml": "2739e386ef3aa21d0686e3a5728e56a9c8637ad0e1c629e3d96adf9faf0f3b69",
+      "src/unilab/assets/robots/g1/g1_sphere_hand.xml": "fde984441ad264aec9db7d98c00b2176769c504e7e6bd7837198d364fb4f7c39",
+      "src/unilab/assets/robots/g1/locomotion_task.xml": "fff63a58544cc39f5672103b578847565b36d161c1be0850e660d499878759ea",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1.xml": "ac048daf5be81c51f08318cb914887ea63930d4ce98d31beaa90f6a160db8c87",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1_23dof.xml": "71fede06a102a472382bb48b0e86f823f44447e1e8592792905b1d7aeb324eed",
+      "src/unilab/assets/robots/g1/scene_crawl_slope.xml": "7438a09ae46f38f139c779c8e1ae18ac308a0c0ae8f0a97ab1e23f488b8691c2",
+      "src/unilab/assets/robots/g1/scene_flat.xml": "13ce8b2c7706885fa4f041ea8ebb5c2875506512bec6cef02a0455eddb9e4de2",
+      "src/unilab/assets/robots/g1/scene_flat_23dof.xml": "3a13769eaea6900b76713dbe60b73af95cf905b657c004e8d2b4d6d92163c280",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_largebox.xml": "2b13d0636dfa251b1509ccb4fed7986d993f0179f03fad0ef741b4d248f03123",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_wall.xml": "17bb27c623262c20792e74feeb40d4edfc5986034f69379a9468ab789814f8d5",
+      "src/unilab/assets/robots/g1/scene_flat_with_largebox.xml": "481613b54c6a55b00b3029bfb135bcbce62f5b9467dfc443aa5830f695825fec",
+      "src/unilab/assets/robots/g1/scene_flat_with_wall.xml": "dc50e5352b05cfc2c24d73348ab44b95e31f5fa4a6a01956b10ca8a631014fea",
+      "src/unilab/assets/robots/g1/scene_rough.xml": "202a4bc002a4abc2406f8408e6e5db2fd5dd81556c6e109dc5d5bd8f1f1d5d55",
+      "src/unilab/assets/robots/g1/scene_rough_23dof.xml": "1e8baa2404f2cb2257bc97ac93bb64c793a9c007c7326070658279fca5b3cf27"
+    },
+    "packages": {
+      "unilab-rl": "1.2.0",
+      "rsl-rl-lib": "5.0.1",
+      "torch": "2.8.0+cu128",
+      "genesis-world": "1.3.3",
+      "motrixsim-core": "0.8.2"
+    },
+    "historical_audit": {
+      "audit_passed": true,
+      "scope": "native_single_source_final_budget",
+      "run_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacgym",
+      "source": "isaacgym",
+      "iterations": 20000,
+      "num_envs": 1024,
+      "transitions_per_iteration": 24576,
+      "total_transitions": 491520000,
+      "optimizer_steps": 400000,
+      "final_checkpoint": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/isaacgym/model_19999.pt",
+      "final_checkpoint_sha256": "b48220126d65d805f3f7292f169f7fec33bfac9dd7d1be7207ae55d7ab4af058",
+      "normalizer_counts": {
+        "actor": 491520000,
+        "critic": 491520000
+      },
+      "learning_rate": 1e-05,
+      "evidence_limit": "Saved budgets and learner state; does not prove task or holdout success."
+    }
+  },
+  "genesis": {
+    "config": {
+      "algo": {
+        "algo": "ppo",
+        "algo_log_name": "rsl_rl_ppo",
+        "seed": 1,
+        "num_envs": 1024,
+        "num_steps_per_env": 24,
+        "max_iterations": 20000,
+        "save_interval": 500,
+        "empirical_normalization": true,
+        "runner_class_name": "OnPolicyRunner",
+        "obs_groups": {
+          "default": [
+            "policy"
+          ],
+          "actor": [
+            "actor"
+          ],
+          "critic": [
+            "critic"
+          ]
+        },
+        "experiment_name": "test",
+        "run_name": "",
+        "resume": false,
+        "load_run": "-1",
+        "checkpoint": -1,
+        "resume_path": null,
+        "policy": {
+          "init_noise_std": 1.0,
+          "actor_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "critic_hidden_dims": [
+            512,
+            256,
+            128
+          ],
+          "activation": "elu",
+          "class_name": "ActorCritic"
+        },
+        "algorithm": {
+          "class_name": "uni_rl.algos.rsl_rl_ppo:FinalObservationAwarePPO",
+          "value_loss_coef": 1.0,
+          "use_clipped_value_loss": true,
+          "clip_param": 0.2,
+          "entropy_coef": 0.005,
+          "num_learning_epochs": 5,
+          "num_mini_batches": 4,
+          "learning_rate": 0.001,
+          "schedule": "adaptive",
+          "gamma": 0.99,
+          "lam": 0.95,
+          "desired_kl": 0.01,
+          "target_kl_stop": null,
+          "max_grad_norm": 1.0,
+          "adaptive_kl_beta": 0.9,
+          "adaptive_lr_growth": 1.1,
+          "adaptive_lr_decay": 1.2,
+          "adaptive_lr_update_interval": 5,
+          "metrics_interval": 8,
+          "finite_check_interval": 8,
+          "enable_compile": false,
+          "warmup_strict_iters": 10,
+          "warmup_metrics_interval": 2,
+          "warmup_finite_check_interval": 2,
+          "disable_finite_checks": true
+        }
+      },
+      "training": {
+        "task_name": "G1FlipTracking",
+        "devices": null,
+        "dp_collector_cpu_ids": null,
+        "device": "cuda:0",
+        "logger": "tensorboard",
+        "wandb_project": "unilab",
+        "wandb_entity": null,
+        "wandb_group": null,
+        "wandb_job_type": null,
+        "wandb_name": null,
+        "wandb_tags": [],
+        "wandb_notes": null,
+        "wandb_mode": null,
+        "sim_backend": "genesis",
+        "nan_guard": {
+          "enabled": true,
+          "buffer_size": 100,
+          "max_envs_to_dump": 5,
+          "output_dir": null
+        },
+        "play_only": false,
+        "no_play": true,
+        "sim2sim_strict": true,
+        "play_render_mode": "auto",
+        "play_env_num": 16,
+        "render_spacing": 1.0,
+        "play_steps": 1000,
+        "cam_distance": 6.0,
+        "cam_elevation": -20.0,
+        "cam_azimuth": 90.0,
+        "cam_lookat": null,
+        "cam_tracking": false,
+        "cam_tracking_env_idx": 0,
+        "cam_tracking_extra_envs": 2,
+        "log_root": null,
+        "num_timesteps": null,
+        "log_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/genesis"
+      },
+      "interactive": {
+        "action_mode": "zero",
+        "policy_obs_mode": "auto",
+        "show_target_bodies": false,
+        "show_reward_debug": false,
+        "target_show_axes": false,
+        "target_body_names": "",
+        "target_max_bodies": 0,
+        "target_marker_radius": 0.02,
+        "target_axis_length": 0.08,
+        "target_marker_alpha": 0.75,
+        "reward_debug_show_velocity": false,
+        "reward_debug_lin_vel_scale": 0.08,
+        "reward_debug_ang_vel_scale": 0.05,
+        "reward_debug_show_connectors": false,
+        "reward_debug_show_global_anchor": false,
+        "camera_follow_body": true,
+        "camera_focus_body_name": "",
+        "camera_height_offset": 0.15,
+        "camera_distance": null,
+        "camera_elevation": null,
+        "camera_azimuth": null,
+        "use_env_visual_model": true,
+        "speed": 1.0,
+        "start_paused": false,
+        "keyboard": false,
+        "keyboard_step_lin": 0.1,
+        "keyboard_step_ang": 0.2
+      },
+      "viser": {
+        "port": 8080,
+        "env_idx": 0,
+        "display_mode": "all",
+        "max_envs": 16
+      },
+      "env": {
+        "scene": {
+          "model_file": "src/unilab/assets/robots/g1/scene_flat.xml",
+          "default_keyframe_name": "stand",
+          "entities": {
+            "robot": {
+              "root_body_name": "pelvis",
+              "joint_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "actuator_names": [
+                "left_hip_pitch_joint",
+                "left_hip_roll_joint",
+                "left_hip_yaw_joint",
+                "left_knee_joint",
+                "left_ankle_pitch_joint",
+                "left_ankle_roll_joint",
+                "right_hip_pitch_joint",
+                "right_hip_roll_joint",
+                "right_hip_yaw_joint",
+                "right_knee_joint",
+                "right_ankle_pitch_joint",
+                "right_ankle_roll_joint",
+                "waist_yaw_joint",
+                "waist_roll_joint",
+                "waist_pitch_joint",
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "left_wrist_yaw_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "right_wrist_yaw_joint"
+              ],
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "geom_names": null
+            }
+          }
+        },
+        "sim_dt": 0.005,
+        "ctrl_dt": 0.02,
+        "max_episode_seconds": 10.0,
+        "observations": {
+          "actor": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              }
+            }
+          },
+          "critic": {
+            "terms": {
+              "command": {
+                "func": "unilab.envs.mdp.generated_commands",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_pos_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "motion_anchor_ori_b": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_anchor_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "base_lin_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "pelvis_local_linvel"
+                }
+              },
+              "base_ang_vel": {
+                "func": "unilab.envs.mdp.builtin_sensor",
+                "params": {
+                  "sensor_name": "torso_gyro"
+                }
+              },
+              "joint_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_pos_rel",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "joint_vel": {
+                "func": "unilab.envs.mdp.joint_vel_rel"
+              },
+              "actions": {
+                "func": "unilab.envs.mdp.last_action"
+              },
+              "body_pos": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_pos_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              },
+              "body_ori": {
+                "func": "unilab.tasks.motion_tracking.common.manager_terms.robot_body_ori_b",
+                "params": {
+                  "command_name": "motion"
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "joint_pos": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionJointPositionActionCfg",
+            "entity_name": "robot",
+            "actuator_names": [
+              ".*"
+            ],
+            "scale": {
+              ".*_(hip_pitch|hip_yaw)_joint": 0.5475464629911068,
+              ".*_(hip_roll|knee)_joint": 0.35066146637882434,
+              ".*_ankle_(pitch|roll)_joint": 0.43857731392336724,
+              "waist_yaw_joint": 0.5475464629911068,
+              "waist_(roll|pitch)_joint": 0.43857731392336724,
+              ".*_(shoulder_(pitch|roll|yaw)|elbow|wrist_roll)_joint": 0.43857731392336724,
+              ".*_wrist_(pitch|yaw)_joint": 0.07450087032950714
+            },
+            "use_default_offset": true,
+            "command_name": "motion"
+          }
+        },
+        "commands": {
+          "motion": {
+            "_target_": "unilab.tasks.motion_tracking.common.manager_terms.MotionCommandCfg",
+            "entity_name": "robot",
+            "resampling_time_range": [
+              1000000000.0,
+              1000000000.0
+            ],
+            "params": {
+              "motion_file": "motions/g1/flip_360_001__A304.npz",
+              "anchor_body_name": "torso_link",
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "left_ankle_roll_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "right_ankle_roll_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "left_wrist_yaw_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link",
+                "right_wrist_yaw_link"
+              ],
+              "sampling_mode": "start",
+              "sampling_start_ratio": 0.0,
+              "truncate_on_clip_end": false,
+              "pose_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "velocity_range": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ],
+                "roll": [
+                  0.0,
+                  0.0
+                ],
+                "pitch": [
+                  0.0,
+                  0.0
+                ],
+                "yaw": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "joint_position_range": [
+                0.0,
+                0.0
+              ],
+              "joint_default_position_range": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "terminations": {
+          "time_out": {
+            "func": "unilab.envs.mdp.time_out",
+            "time_out": true
+          },
+          "anchor_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5
+            }
+          },
+          "anchor_ori": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_anchor_ori",
+            "params": {
+              "command_name": "motion",
+              "threshold": 1000000000.0,
+              "asset_cfg": {
+                "_target_": "unilab.managers.SceneEntityCfg",
+                "name": "robot"
+              }
+            }
+          },
+          "ee_body_pos": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_motion_body_pos_z_only",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.5,
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link",
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ]
+            }
+          },
+          "undesired_contacts": {
+            "func": "unilab.tasks.motion_tracking.common.manager_terms.bad_undesired_body_contacts",
+            "params": {
+              "command_name": "motion",
+              "threshold": 0.05,
+              "body_names": [
+                "pelvis",
+                "left_hip_roll_link",
+                "left_knee_link",
+                "right_hip_roll_link",
+                "right_knee_link",
+                "torso_link",
+                "left_shoulder_roll_link",
+                "left_elbow_link",
+                "right_shoulder_roll_link",
+                "right_elbow_link"
+              ]
+            }
+          }
+        },
+        "policy_observation_group": "actor",
+        "critic_observation_group": "critic",
+        "motrix_disable_self_collision": true,
+        "genesis_enable_self_collision": false,
+        "genesis_device_id": 0,
+        "genesis_integrator": "implicitfast",
+        "seed": 4
+      },
+      "reward": {
+        "motion_global_root_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_position_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_global_root_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_anchor_orientation_error_exp",
+          "weight": 0.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3
+          }
+        },
+        "motion_body_ori": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_orientation_error_exp",
+          "weight": 1.5,
+          "params": {
+            "command_name": "motion",
+            "std": 0.4
+          }
+        },
+        "motion_body_lin_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_linear_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "motion_body_ang_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_global_body_angular_velocity_error_exp",
+          "weight": 1.0,
+          "params": {
+            "command_name": "motion",
+            "std": 3.14
+          }
+        },
+        "motion_joint_pos": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_position_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.2
+          }
+        },
+        "motion_joint_vel": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_joint_velocity_error_exp",
+          "weight": 0.0,
+          "params": {
+            "command_name": "motion",
+            "std": 1.0
+          }
+        },
+        "action_rate_l2": {
+          "func": "unilab.envs.mdp.action_rate_l2",
+          "weight": -0.005
+        },
+        "joint_limit": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.joint_pos_limits",
+          "weight": -10.0,
+          "params": {
+            "asset_cfg": {
+              "_target_": "unilab.managers.SceneEntityCfg",
+              "name": "robot",
+              "joint_names": ".*"
+            }
+          }
+        },
+        "motion_ee_body_pos_z": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.motion_relative_body_position_z_error_exp",
+          "weight": 2.0,
+          "params": {
+            "command_name": "motion",
+            "std": 0.3,
+            "body_names": [
+              "left_ankle_roll_link",
+              "right_ankle_roll_link",
+              "left_wrist_yaw_link",
+              "right_wrist_yaw_link"
+            ]
+          }
+        },
+        "undesired_contacts": {
+          "func": "unilab.tasks.motion_tracking.common.manager_terms.undesired_body_contacts",
+          "weight": -0.1,
+          "params": {
+            "command_name": "motion",
+            "threshold": 0.05,
+            "body_names": [
+              "pelvis",
+              "left_hip_roll_link",
+              "left_knee_link",
+              "right_hip_roll_link",
+              "right_knee_link",
+              "torso_link",
+              "left_shoulder_roll_link",
+              "left_elbow_link",
+              "right_shoulder_roll_link",
+              "right_elbow_link"
+            ]
+          }
+        }
+      },
+      "play_profile": {
+        "enabled": true,
+        "env": {
+          "render_spacing": 2.0
+        }
+      }
+    },
+    "assets": {
+      "src/unilab/assets/motions/g1/flip_360_001__A304.npz": "bd6785de42e569deb0f680057c0ff62449d3d99058e3c0c1ce437c373e8b604d",
+      "src/unilab/assets/robots/g1/assets/box_tracking/largebox.obj": "dbcc11281f62e9226f49165252375080d2e490e5a3f0ab6ba917acbd8f7abc1c",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box1.obj": "7cce9d9c4d4c90c0c486f0b198f881fd45893e812a6e5bdfcf7d9704d45f193b",
+      "src/unilab/assets/robots/g1/assets/climb_20_z_scale_1/box2.obj": "e8fc2031698548e30327fa5219cf221ea12c12bf4bba316376b365cc8e6969e1",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/ground.obj": "1eedb1ab6eb7dfbc9e058e78b0d0162898aeb5c62b1d11cdceaccac532d1959c",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/plateau.obj": "0223800c05dbd0475cda21dfc5ec9cf085e76c33f4d6420b45c83ffd74c1f078",
+      "src/unilab/assets/robots/g1/assets/crawl_slope/slope.obj": "be5535061a2dc87544afe328aacba4dd4768e8fb1e88dbf79ee53b5fae11491e",
+      "src/unilab/assets/robots/g1/assets/head_link.STL": "005fb67fbd3eff94aa8bf4a6e83238174e9f91b6721f7111594322f223724411",
+      "src/unilab/assets/robots/g1/assets/left_ankle_pitch_link.STL": "d49e3abc6f5b12e532062cd575b87b5ef40cd2a3fc18f54a1ca5bba4f773d51d",
+      "src/unilab/assets/robots/g1/assets/left_ankle_roll_link.STL": "c4092af943141d4d9f74232f3cfa345afc6565f46a077793b8ae0e68b39dc33f",
+      "src/unilab/assets/robots/g1/assets/left_elbow_link.STL": "fa752198accd104d5c4c3a01382e45165b944fbbc5acce085059223324e5bed3",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_index_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_0_link.STL": "6b35f2f77211d5a366f0b9a4e47c4ee35e536731266f1a34e9efa12db579b892",
+      "src/unilab/assets/robots/g1/assets/left_hand_middle_1_link.STL": "9e315ebc8a7a0cb98e033985b586b20d81cf8aa761181ae61ce56fcb14077a06",
+      "src/unilab/assets/robots/g1/assets/left_hand_palm_link.STL": "23a486b75bd78a9bf03cec25d84d87f97f3dae038cf21a743b6d469b337e4004",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_0_link.STL": "a90c721661c0622685488a3c74d1e122c7da89242d3a1daef75edb83422d05e0",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_1_link.STL": "445c54a45bc13ce36001556f66bc0f49c83cb40321205ae4d676bb2874325684",
+      "src/unilab/assets/robots/g1/assets/left_hand_thumb_2_link.STL": "3d8dbe5085acfc213d21aa8b0782e89cd79084e9678f3a85fc7b04a86b029db5",
+      "src/unilab/assets/robots/g1/assets/left_hip_pitch_link.STL": "4725168105ee768ee31638ef22b53f6be2d7641bfd7cfefe803488d884776fa4",
+      "src/unilab/assets/robots/g1/assets/left_hip_roll_link.STL": "91f25922ee8a7c3152790051bebad17b4d9cd243569c38fe340285ff93a97acf",
+      "src/unilab/assets/robots/g1/assets/left_hip_yaw_link.STL": "a16d88aa6ddac8083aa7ad55ed317bea44b1fa003d314fba88965b7ed0f3b55b",
+      "src/unilab/assets/robots/g1/assets/left_knee_link.STL": "8d92b9e3d3a636761150bb8025e32514c4602b91c7028d523ee42b3e632de477",
+      "src/unilab/assets/robots/g1/assets/left_rubber_hand.STL": "cff2221a690fa69303f61fce68f2d155c1517b52efb6ca9262dd56e0bc6e70fe",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_pitch_link.STL": "f0d1cfd02fcf0d42f95e678eeca33da3afbcc366ffba5c052847773ec4f31d52",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_roll_link.STL": "fb9df21687773522598dc384f1a2945c7519f11cbc8bd372a49170316d6eee88",
+      "src/unilab/assets/robots/g1/assets/left_shoulder_yaw_link.STL": "1aa97e9748e924336567992181f78c7cd0652fd52a4afcca3df6b2ef6f9e712e",
+      "src/unilab/assets/robots/g1/assets/left_wrist_pitch_link.STL": "b251d8e05047f695d0f536cd78c11973cfa4e78d08cfe82759336cc3471de3a9",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_link.STL": "edc387c9a0ba8c2237e9b296d32531426fabeb6f53e58df45c76106bca74148c",
+      "src/unilab/assets/robots/g1/assets/left_wrist_roll_rubber_hand.STL": "e81030abd023bd9e4a308ef376d814a2c12d684d8a7670c335bbd5cd7809c909",
+      "src/unilab/assets/robots/g1/assets/left_wrist_yaw_link.STL": "83f8fb3a726bf9613d65dd14f0f447cb918c3c95b3938042a0c9c09749267d3b",
+      "src/unilab/assets/robots/g1/assets/logo_link.STL": "8571a0a19bc4916fa55f91449f51d5fdefd751000054865a842449429d5f155b",
+      "src/unilab/assets/robots/g1/assets/pelvis.STL": "5ba6bbc888e630550140d3c26763f10206da8c8bd30ed886b8ede41c61f57a31",
+      "src/unilab/assets/robots/g1/assets/pelvis_contour_link.STL": "5cc5c2c7a312329e3feeb2b03d3fc09fc29705bd01864f6767e51be959662420",
+      "src/unilab/assets/robots/g1/assets/right_ankle_pitch_link.STL": "15be426539ec1be70246d4d82a168806db64a41301af8b35c197a33348c787a9",
+      "src/unilab/assets/robots/g1/assets/right_ankle_roll_link.STL": "4b66222ea56653e627711b56d0a8949b4920da5df091da0ceb343f54e884e3a5",
+      "src/unilab/assets/robots/g1/assets/right_elbow_link.STL": "1be925d7aa268bb8fddf5362b9173066890c7d32092c05638608126e59d1e2ab",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_index_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_0_link.STL": "12ab4300c95e437e834f9aef772b3b431c671bf34338930b52ad11aef73bbd0d",
+      "src/unilab/assets/robots/g1/assets/right_hand_middle_1_link.STL": "c9c34efce4563cacdcfd29fc838a982976d40f5442c71219811dcbbf3923a33d",
+      "src/unilab/assets/robots/g1/assets/right_hand_palm_link.STL": "86c0b231cc44477d64a6493e5a427ba16617a00738112dd187c652675b086fb9",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_0_link.STL": "544298d0ea1088f5b276a10cc6a6a9e533efdd91594955fdc956c46211d07f83",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_1_link.STL": "0a9a820da8dd10f298778b714f1364216e8a5976f4fd3a05689ea26327d44bf6",
+      "src/unilab/assets/robots/g1/assets/right_hand_thumb_2_link.STL": "3f1bfb37668e8f61801c8d25f171fa1949e08666be86c67acad7e0079937cc45",
+      "src/unilab/assets/robots/g1/assets/right_hip_pitch_link.STL": "e4f3c99d7f4a7d34eadbef9461fc66e3486cb5442db1ec50c86317d459f1a9c6",
+      "src/unilab/assets/robots/g1/assets/right_hip_roll_link.STL": "4c254ef66a356f492947f360dd931965477b631e3fcc841f91ccc46d945d54f6",
+      "src/unilab/assets/robots/g1/assets/right_hip_yaw_link.STL": "e479c2936ca2057e9eb2f7dff6c189b7419d7b8484dea0b298cbb36a2a6aa668",
+      "src/unilab/assets/robots/g1/assets/right_knee_link.STL": "63c4008449c9bbe701a6e2b557b7a252e90cf3a5abcf54cee46862b9a69f8ec8",
+      "src/unilab/assets/robots/g1/assets/right_rubber_hand.STL": "99533b778bca6246144fa511bb9d4e555e075c641f2a0251e04372869cd99d67",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_pitch_link.STL": "24cdb387e0128dfe602770a81c56cdce3a0181d34d039a11d1aaf8819b7b8c02",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_roll_link.STL": "962b97c48f9ce9e8399f45dd9522e0865d19aa9fd299406b2d475a8fc4a53e81",
+      "src/unilab/assets/robots/g1/assets/right_shoulder_yaw_link.STL": "a0b76489271da0c72461a344c9ffb0f0c6e64f019ea5014c1624886c442a2fe5",
+      "src/unilab/assets/robots/g1/assets/right_wrist_pitch_link.STL": "d22f8f3b3127f15a63e5be1ee273cd5075786c3142f1c3d9f76cbf43d2a26477",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_link.STL": "a7ee9212ff5b94d6cb7f52bb1bbf3f352194d5b598acff74f4c77d340c5b344f",
+      "src/unilab/assets/robots/g1/assets/right_wrist_roll_rubber_hand.STL": "0729aff1ac4356f9314de13a46906267642e58bc47f0d8a7f17f6590a6242ccf",
+      "src/unilab/assets/robots/g1/assets/right_wrist_yaw_link.STL": "bc9dece2d12509707e0057ba2e48df8f3d56db0c79410212963a25e8a50f61a6",
+      "src/unilab/assets/robots/g1/assets/scene_crawl_slope.xml": "55d6864ba768505baf40a5ca6a4a424bc74c0997d9ddb2e2f0b0ea55eb99d150",
+      "src/unilab/assets/robots/g1/assets/torso_link_23dof_rev_1_0.STL": "3cd0d56fde14b73c1623304684805029971c4f84b596f9914e823ca70a107fd2",
+      "src/unilab/assets/robots/g1/assets/torso_link_rev_1_0.STL": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723",
+      "src/unilab/assets/robots/g1/assets/waist_roll_link_rev_1_0.STL": "b67c347a05abc3e8ddae600d98a082bee273bb39f8e651647708b0a7140a8a97",
+      "src/unilab/assets/robots/g1/assets/waist_yaw_link_rev_1_0.STL": "ec6db442b11f25eed898b5add07940c85d804f300de24dcbd264ccd8be7d554c",
+      "src/unilab/assets/robots/g1/g1.xml": "bb6089243f8fe1c97a6410ccde8754eaa58e5d8e476aca69d790ce501cb4a48e",
+      "src/unilab/assets/robots/g1/g1_23dof.xml": "1008503a142e6babdf8dc123cf711507361768255b765bac8a13a8a9b17ce7cb",
+      "src/unilab/assets/robots/g1/g1_23dof_sphere_hand.xml": "2739e386ef3aa21d0686e3a5728e56a9c8637ad0e1c629e3d96adf9faf0f3b69",
+      "src/unilab/assets/robots/g1/g1_sphere_hand.xml": "fde984441ad264aec9db7d98c00b2176769c504e7e6bd7837198d364fb4f7c39",
+      "src/unilab/assets/robots/g1/locomotion_task.xml": "fff63a58544cc39f5672103b578847565b36d161c1be0850e660d499878759ea",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1.xml": "ac048daf5be81c51f08318cb914887ea63930d4ce98d31beaa90f6a160db8c87",
+      "src/unilab/assets/robots/g1/scene_climb_20_z_scale_1_23dof.xml": "71fede06a102a472382bb48b0e86f823f44447e1e8592792905b1d7aeb324eed",
+      "src/unilab/assets/robots/g1/scene_crawl_slope.xml": "7438a09ae46f38f139c779c8e1ae18ac308a0c0ae8f0a97ab1e23f488b8691c2",
+      "src/unilab/assets/robots/g1/scene_flat.xml": "13ce8b2c7706885fa4f041ea8ebb5c2875506512bec6cef02a0455eddb9e4de2",
+      "src/unilab/assets/robots/g1/scene_flat_23dof.xml": "3a13769eaea6900b76713dbe60b73af95cf905b657c004e8d2b4d6d92163c280",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_largebox.xml": "2b13d0636dfa251b1509ccb4fed7986d993f0179f03fad0ef741b4d248f03123",
+      "src/unilab/assets/robots/g1/scene_flat_23dof_with_wall.xml": "17bb27c623262c20792e74feeb40d4edfc5986034f69379a9468ab789814f8d5",
+      "src/unilab/assets/robots/g1/scene_flat_with_largebox.xml": "481613b54c6a55b00b3029bfb135bcbce62f5b9467dfc443aa5830f695825fec",
+      "src/unilab/assets/robots/g1/scene_flat_with_wall.xml": "dc50e5352b05cfc2c24d73348ab44b95e31f5fa4a6a01956b10ca8a631014fea",
+      "src/unilab/assets/robots/g1/scene_rough.xml": "202a4bc002a4abc2406f8408e6e5db2fd5dd81556c6e109dc5d5bd8f1f1d5d55",
+      "src/unilab/assets/robots/g1/scene_rough_23dof.xml": "1e8baa2404f2cb2257bc97ac93bb64c793a9c007c7326070658279fca5b3cf27"
+    },
+    "packages": {
+      "unilab-rl": "1.2.0",
+      "rsl-rl-lib": "5.0.1",
+      "torch": "2.8.0+cu128",
+      "genesis-world": "1.3.3",
+      "motrixsim-core": "0.8.2"
+    },
+    "historical_audit": {
+      "audit_passed": true,
+      "scope": "native_single_source_final_budget",
+      "run_dir": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/genesis",
+      "source": "genesis",
+      "iterations": 20000,
+      "num_envs": 1024,
+      "transitions_per_iteration": 24576,
+      "total_transitions": 491520000,
+      "optimizer_steps": 400000,
+      "final_checkpoint": "/home/wsm/wang-sm/UniLab-unidr-backends/logs/comparison-1024-20000-20260916/genesis/model_19999.pt",
+      "final_checkpoint_sha256": "89e88c2b12b2cbbe5fade9eb6fdf94d89c6487fd8d10389a2000307b34682cde",
+      "normalizer_counts": {
+        "actor": 491520000,
+        "critic": 491520000
+      },
+      "learning_rate": 1e-05,
+      "evidence_limit": "Saved budgets and learner state; does not prove task or holdout success."
+    }
+  }
+}

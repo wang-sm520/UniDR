@@ -1,0 +1,146 @@
+[Quadrants] version 1.3.0, llvm 22.1.0, commit ab9a58ab, linux, python 3.10.12
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/wsm/wang-sm/UniDR-9-16-resume/unilab_rl
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.13.0, quadrants-1.3.0, hydra-core-1.3.2
+collected 542 items / 3 deselected / 539 selected
+
+tests/algos/test_appo_learner.py .                                       [  0%]
+tests/algos/test_appo_learner_metrics.py .                               [  0%]
+tests/algos/test_appo_runner_unit.py .....                               [  1%]
+tests/algos/test_appo_staging.py ....                                    [  2%]
+tests/algos/test_appo_worker.py .....                                    [  2%]
+tests/algos/test_double_buffer_builders.py ......                        [  4%]
+tests/algos/test_fast_sac_compile.py ...s.sss..................          [  8%]
+tests/algos/test_fast_td3_learner.py ..............                      [ 11%]
+tests/algos/test_flash_sac_learner.py .....s.............                [ 15%]
+tests/algos/test_multi_source_ppo.py ................................... [ 21%]
+...                                                                      [ 22%]
+tests/algos/test_offpolicy_actor_adapter.py ...............              [ 24%]
+tests/algos/test_offpolicy_bootstrap_contract.py ...                     [ 25%]
+tests/algos/test_offpolicy_logger.py ...............                     [ 28%]
+tests/algos/test_offpolicy_runner_unit.py ......................sss..... [ 33%]
+...                                                                      [ 34%]
+tests/algos/test_offpolicy_runtime.py .....                              [ 35%]
+tests/algos/test_offpolicy_thread_budget.py .....                        [ 36%]
+tests/algos/test_offpolicy_worker.py ..............                      [ 38%]
+tests/algos/test_rsl_rl_ppo.py ..................                        [ 42%]
+tests/algos/test_rsl_rl_training_state.py .....................          [ 46%]
+tests/algos/test_synchronous_ppo.py ..........                           [ 47%]
+tests/algos/test_synchronous_runner.py .................                 [ 51%]
+tests/algos/test_torch_compile_helper.py ...                             [ 51%]
+tests/ipc/test_async_runner.py ....................                      [ 55%]
+tests/ipc/test_dp_launcher.py .                                          [ 55%]
+tests/ipc/test_dp_sync.py .........                                      [ 57%]
+tests/ipc/test_inference_slot.py ..                                      [ 57%]
+tests/ipc/test_memory_budget.py .....                                    [ 58%]
+tests/ipc/test_replay_buffer.py .......                                  [ 59%]
+tests/ipc/test_replay_pipeline_gpu_resident.py ..........sssssssssssssss [ 64%]
+ssssssss                                                                 [ 65%]
+tests/ipc/test_rollout_ring_buffer.py ...............                    [ 68%]
+tests/ipc/test_shared_weight_sync.py ........                            [ 70%]
+tests/ipc/test_synchronous_env.py ..................                     [ 73%]
+tests/logging/test_synchronous_report.py ............................... [ 79%]
+..............                                                           [ 81%]
+tests/test_env_contract.py ....                                          [ 82%]
+tests/test_nan_guard.py ................                                 [ 85%]
+tests/test_smoke.py ..                                                   [ 85%]
+tests/utils/test_algo_utils.py .......                                   [ 87%]
+tests/utils/test_device.py ......................                        [ 91%]
+tests/utils/test_final_observation.py .....                              [ 92%]
+tests/utils/test_observations.py ......                                  [ 93%]
+tests/utils/test_seed_contract.py ....                                   [ 94%]
+tests/utils/test_torch_utils.py .ss......................s......         [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.10.12-final-0 _______________
+
+Name                                                     Stmts   Miss  Cover
+----------------------------------------------------------------------------
+src/uni_rl/__init__.py                                       3      0   100%
+src/uni_rl/algos/__init__.py                                 0      0   100%
+src/uni_rl/algos/appo/__init__.py                            0      0   100%
+src/uni_rl/algos/appo/learner.py                           299    139    54%
+src/uni_rl/algos/appo/runner.py                            220     78    65%
+src/uni_rl/algos/appo/runtime.py                            23     23     0%
+src/uni_rl/algos/appo/staging.py                            80      8    90%
+src/uni_rl/algos/appo/worker.py                            210    171    19%
+src/uni_rl/algos/common/__init__.py                          6      0   100%
+src/uni_rl/algos/common/actor_factory.py                    18      0   100%
+src/uni_rl/algos/common/collector_timing.py                 20      3    85%
+src/uni_rl/algos/common/compile.py                          28      4    86%
+src/uni_rl/algos/common/device.py                           15      0   100%
+src/uni_rl/algos/common/networks.py                         51      0   100%
+src/uni_rl/algos/common/normalization.py                    51      3    94%
+src/uni_rl/algos/common/stability.py                        11      4    64%
+src/uni_rl/algos/fast_sac/__init__.py                        0      0   100%
+src/uni_rl/algos/fast_sac/double_buffer.py                  37      5    86%
+src/uni_rl/algos/fast_sac/learner.py                       763    210    72%
+src/uni_rl/algos/fast_sac/runner.py                         20     20     0%
+src/uni_rl/algos/fast_td3/__init__.py                        0      0   100%
+src/uni_rl/algos/fast_td3/double_buffer.py                  13      0   100%
+src/uni_rl/algos/fast_td3/learner.py                       155      5    97%
+src/uni_rl/algos/flash_sac/__init__.py                       4      0   100%
+src/uni_rl/algos/flash_sac/double_buffer.py                 31      2    94%
+src/uni_rl/algos/flash_sac/layers.py                       187      0   100%
+src/uni_rl/algos/flash_sac/learner.py                      683    319    53%
+src/uni_rl/algos/flash_sac/network.py                      116      3    97%
+src/uni_rl/algos/flash_sac/runner.py                        21     11    48%
+src/uni_rl/algos/flash_sac/update.py                        47      3    94%
+src/uni_rl/algos/multi_source_ppo.py                       180      0   100%
+src/uni_rl/algos/rsl_rl.py                                 181     23    87%
+src/uni_rl/algos/rsl_rl_ppo.py                             156     99    37%
+src/uni_rl/algos/rsl_rl_runtime.py                          27      3    89%
+src/uni_rl/algos/rsl_rl_training_state.py                   40      0   100%
+src/uni_rl/algos/synchronous_ppo.py                        154      2    99%
+src/uni_rl/algos/synchronous_runner.py                     216     17    92%
+src/uni_rl/env_contract.py                                  49      0   100%
+src/uni_rl/ipc/__init__.py                                   5      0   100%
+src/uni_rl/ipc/async_runner.py                              91     31    66%
+src/uni_rl/ipc/collector_error.py                           74     34    54%
+src/uni_rl/ipc/dp_launcher.py                              322    212    34%
+src/uni_rl/ipc/dp_sync.py                                  174    115    34%
+src/uni_rl/ipc/inference_slot.py                            76      7    91%
+src/uni_rl/ipc/memory_budget.py                             59     14    76%
+src/uni_rl/ipc/replay_buffer.py                            200     53    74%
+src/uni_rl/ipc/replay_pipelines/__init__.py                  3      0   100%
+src/uni_rl/ipc/replay_pipelines/base.py                     11      0   100%
+src/uni_rl/ipc/replay_pipelines/gpu_resident.py            494    418    15%
+src/uni_rl/ipc/replay_pipelines/native_h2d.py               71     71     0%
+src/uni_rl/ipc/replay_pipelines/transfer/__init__.py         3      0   100%
+src/uni_rl/ipc/replay_pipelines/transfer/base.py            13      0   100%
+src/uni_rl/ipc/replay_pipelines/transfer/cuda_like.py       91     73    20%
+src/uni_rl/ipc/replay_pipelines/transfer/factory.py         11      5    55%
+src/uni_rl/ipc/replay_pipelines/transfer/torch_copy.py      67     45    33%
+src/uni_rl/ipc/rollout_ring_buffer.py                      115      7    94%
+src/uni_rl/ipc/shared_buffer.py                              7      0   100%
+src/uni_rl/ipc/synchronous_env.py                          286     61    79%
+src/uni_rl/ipc/weight_sync.py                              106      8    92%
+src/uni_rl/logging/__init__.py                               5      0   100%
+src/uni_rl/logging/common.py                               258    109    58%
+src/uni_rl/logging/offpolicy.py                            480     71    85%
+src/uni_rl/logging/onpolicy.py                             121    102    16%
+src/uni_rl/logging/single_run_audit.py                      93     93     0%
+src/uni_rl/logging/synchronous_report.py                   228      1    99%
+src/uni_rl/logging/trace_event.py                           85     62    27%
+src/uni_rl/offpolicy/__init__.py                             5      0   100%
+src/uni_rl/offpolicy/actor_adapter.py                       30      0   100%
+src/uni_rl/offpolicy/double_buffer_runner.py               554    159    71%
+src/uni_rl/offpolicy/runner.py                             131     37    72%
+src/uni_rl/offpolicy/runtime.py                             48     17    65%
+src/uni_rl/offpolicy/thread_budget.py                      121     19    84%
+src/uni_rl/offpolicy/worker.py                             219    155    29%
+src/uni_rl/training_state.py                                34      1    97%
+src/uni_rl/utils/__init__.py                                 3      0   100%
+src/uni_rl/utils/device.py                                 280    117    58%
+src/uni_rl/utils/final_observation.py                       41      0   100%
+src/uni_rl/utils/nan_guard.py                               81      5    94%
+src/uni_rl/utils/observations.py                            11      0   100%
+src/uni_rl/utils/seed.py                                    62     19    69%
+src/uni_rl/utils/tensor.py                                  26      0   100%
+----------------------------------------------------------------------------
+TOTAL                                                     9310   3276    65%
+Required test coverage of 50% reached. Total coverage: 64.81%
+================ 505 passed, 34 skipped, 3 deselected in 54.38s ================

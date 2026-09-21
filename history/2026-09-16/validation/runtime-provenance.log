@@ -1,0 +1,13 @@
+{
+  "uni_rl_file": "/home/wsm/wang-sm/UniDR-9-16-resume/unilab_rl/src/uni_rl/__init__.py",
+  "rsl_rl_file": "/home/wsm/wang-sm/UniDR-9-16-resume/.venv/lib/python3.10/site-packages/rsl_rl/__init__.py",
+  "rsl_rl_version": "5.0.1",
+  "torch_version": "2.8.0+cu128",
+  "runtime_historical_files_verified": 90,
+  "editable_metadata": {
+    "url": "file:///home/wsm/wang-sm/UniDR-9-16-resume/unilab_rl",
+    "dir_info": {
+      "editable": true
+    }
+  }
+}

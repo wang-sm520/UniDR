@@ -1,0 +1,1352 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 9be2bbb..145eda7 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,23 @@
+ # Changelog
+ 
++## Unreleased
++
++- Add optional `motrix_disable_self_collision` and `genesis_enable_self_collision`
++  factory settings. Motrix filters the named root articulation on the MSD cold
++  path; Genesis uses its native rigid option. Both preserve robot-ground contacts
++  and retain existing behavior when unset.
++
++- Include angular-motion velocity at offset velocimeter sites in both Isaac
++  adapters before rotating measurements into the sensor frame.
++
++- Correct IsaacGym/IsaacSim motion body indices to account for the dataset's
++  leading worldbody slot, and expose the existing world-inclusive mapping on
++  Genesis. Motion references now select the named robot bodies consistently.
++- Make IsaacGym reset observations current through cached MJCF kinematics,
++  coalesce partial reset tensor writes before the next physics step, and convert
++  native COM velocities to the public link-origin convention. Selected reset
++  contact forces are cleared until the next physics solve.
++
+ ## 1.3.0 - 2026-09-13
+ 
+ - Implement fixed model variants in the MuJoCo CPU adapter. Construction-time
+diff --git a/docs/isaacgym-reset-validation.md b/docs/isaacgym-reset-validation.md
+new file mode 100644
+index 0000000..803b6dc
+--- /dev/null
++++ b/docs/isaacgym-reset-validation.md
+@@ -0,0 +1,39 @@
++# Isaac Gym Reset Validation
++
++Local validation on 2026-09-14, branch `codex/unidr-motion-body-ids`, based on
++UniSim v1.3.0 (`4270aa81d868744980db90dac6dd959d3f542f50`, Apache-2.0).
++The repository AGENTS.md and uv.lock were inspected; dependencies were not changed.
++Hardware: RTX 3090, driver 580.178.04. Existing vendor worker: Python 3.8.20,
++NumPy 1.21.6, Isaac Gym Preview 4. Standalone helper import passed on that interpreter.
++
++Reset now publishes cached MJCF FK immediately and coalesces native tensor writes
++until the next STEP. Each root/DoF setter runs once before simulate. Native COM
++velocities are converted to/from the public link-origin velocity convention.
++Only selected reset rows change; their stale contact forces are cleared until the
++next physics solve. No physics step or XML parse occurs during reset.
++
++From the UniSim checkout:
++
++```sh
++make check
++UNISIM_TEST_ISAACGYM=1 uv run --no-sync pytest -q tests/test_isaacgym_reset.py
++git diff --check
++make package
++```
++
++The ordinary gate passed: Ruff clean, 288 passed and 16 skipped. The opt-in suite
++passed all 14 tests in 4.58s. Packaging passed and the source archive contains the
++standalone FK helper. The SDK is not a base dependency. Its test checks repeated
++resets, native link velocities with nonzero COM offsets, and subsequent stepping.
++CPU tests cover anchored joints, refs/angle units, fixed/hinge/slide joints,
++velocity derivatives, cold includes, row isolation, staging/REFRESH order, and Python 3.8 syntax.
++
++Additional local commands, run from `/home/wsm/wang-sm/UniLab-unidr-backends`:
++`uv run --no-sync python /tmp/unidr_gym_reset_native.py` and
++`uv run --no-sync python /tmp/unidr_gym_g1_reset.py` both passed. The latter used
++two environments and the registered G1 flip NPZ frames 0, 80, and 160. Maximum
++reset errors were position 1.19e-7, linear velocity 4.77e-7, angular velocity 9.54e-7.
++After a native STEP, FK discrepancies were at most 8.98e-7, 5.69e-6, and 3.11e-6.
++G1, Go1, and Go2 flat-scene XMLs all passed cold compilation; other MJCF structures
++outside the documented FK subset fail with an initialization diagnostic.
++These are reset correctness checks, not evidence of flip learning or multi-GPU training.
+diff --git a/docs/support-matrix.md b/docs/support-matrix.md
+index 1f08870..2d62245 100644
+--- a/docs/support-matrix.md
++++ b/docs/support-matrix.md
+@@ -17,6 +17,18 @@ runtime discovery and raises an adapter-specific, actionable error when the
+ runtime is unavailable. The matrix is an adapter/API support statement, not a
+ claim that every host has every vendor SDK or GPU capability.
+ 
++Self-collision can be selected at construction with
++`create_backend("motrix", ..., motrix_disable_self_collision=True)` or
++`create_backend("genesis", ..., genesis_enable_self_collision=False)`.
++The Motrix option disables internal contacts for the articulation whose root is
++`base_name`; a missing or ambiguous root fails before model construction.
++Genesis disables contacts between links sharing an articulation root, including
++when the robot and floor are imported from one MJCF. Robot-ground and contacts
++with other articulation roots remain enabled. Both options accept a boolean or
++`None`; unset/`None` retains historical behavior. IsaacGym and IsaacSim already
++disable robot self-collision in their worker import paths. These options do not
++change MuJoCo contacts.
++
+ The MuJoCo adapter's native executor is
+ [mjbatch](https://github.com/unilabsim/mjbatch), a maintained fork of
+ kevinzakka/mjbatch with prebuilt wheels for Linux x86_64/aarch64 and macOS
+diff --git a/src/unisim/backend/genesis/backend.py b/src/unisim/backend/genesis/backend.py
+index 49734f9..ff8d895 100644
+--- a/src/unisim/backend/genesis/backend.py
++++ b/src/unisim/backend/genesis/backend.py
+@@ -90,6 +90,7 @@ class GenesisBackend(SimBackend):
+         constraint_solver: str | None = None,
+         friction_cone: str | None = None,
+         solver_iterations: int | None = None,
++        enable_self_collision: bool | None = None,
+         **unexpected_kwargs: Any,
+     ) -> None:
+         if unexpected_kwargs:
+@@ -99,6 +100,8 @@ class GenesisBackend(SimBackend):
+             raise ValueError(f"num_envs must be a positive integer, got {num_envs!r}")
+         if float(sim_dt) <= 0.0:
+             raise ValueError(f"sim_dt must be positive, got {sim_dt!r}")
++        if enable_self_collision is not None and not isinstance(enable_self_collision, bool):
++            raise TypeError("genesis enable_self_collision must be bool or None")
+         if solver_iterations is not None and (
+             isinstance(solver_iterations, bool)
+             or not isinstance(solver_iterations, int)
+@@ -150,6 +153,7 @@ class GenesisBackend(SimBackend):
+             constraint_solver=constraint_solver,
+             friction_cone=friction_cone,
+             solver_iterations=solver_iterations,
++            enable_self_collision=enable_self_collision,
+         )
+         self._entity = self._scene.add_entity(
+             self._gs.morphs.MJCF(file=self._metadata.source_model_file)
+@@ -494,6 +498,10 @@ class GenesisBackend(SimBackend):
+                 raise ValueError(f"Body {name!r} not found in genesis model") from exc
+         return np.asarray(resolved, dtype=np.int32)
+ 
++    def get_motion_body_ids(self, names: Sequence[str]) -> np.ndarray:
++        # Genesis metadata already includes MJCF worldbody at index 0.
++        return self.get_body_ids(names)
++
+     def get_geom_contact_masks(self) -> tuple[np.ndarray, np.ndarray]:
+         """Genesis-native recoded contype/conaffinity of collision geoms.
+ 
+@@ -1095,10 +1103,8 @@ class GenesisBackend(SimBackend):
+ 
+     def get_base_ang_vel(self) -> np.ndarray:
+         self._require_free_root("get_base_ang_vel")
+-        # qvel[3:6] is body-frame angular velocity; the contract wants world
+-        # frame.  Deriving it from qvel keeps the value fresh after reset
+-        # (genesis link velocity getters only refresh across a step barrier,
+-        # REPORT §5.6); it equals get_links_ang(root) after a step.
++        # Free-root qvel stores body-frame angular velocity; expose world-frame
++        # components using the current quaternion, including immediately after reset.
+         return np_quat_apply_batched(self.get_base_quat(), self._qvel_cache[1][:, 3:6])
+ 
+     def get_dof_pos(self) -> np.ndarray:
+diff --git a/src/unisim/backend/genesis/materialization.py b/src/unisim/backend/genesis/materialization.py
+index cd0ec9e..f4f5e41 100644
+--- a/src/unisim/backend/genesis/materialization.py
++++ b/src/unisim/backend/genesis/materialization.py
+@@ -309,6 +309,7 @@ def build_genesis_scene(
+     constraint_solver: str | None,
+     friction_cone: str | None,
+     solver_iterations: int | None,
++    enable_self_collision: bool | None = None,
+ ) -> Any:
+     """Construct the unbuilt Genesis scene with explicit global options."""
+     gs = deps.genesis
+@@ -335,6 +336,11 @@ def build_genesis_scene(
+         )
+     if solver_iterations is not None:
+         rigid_kwargs["iterations"] = int(solver_iterations)
++    if enable_self_collision is not None:
++        if not isinstance(enable_self_collision, bool):
++            raise TypeError("genesis enable_self_collision must be bool or None")
++        # Genesis filters equal articulation roots, preserving imported floor contacts.
++        rigid_kwargs["enable_self_collision"] = enable_self_collision
+     gravity_tuple = tuple(float(component) for component in np.asarray(gravity, dtype=np.float64))
+     return gs.Scene(
+         sim_options=gs.options.SimOptions(dt=float(sim_dt), gravity=gravity_tuple),
+diff --git a/src/unisim/backend/isaacgym/kinematics.py b/src/unisim/backend/isaacgym/kinematics.py
+new file mode 100644
+index 0000000..f3ff4bc
+--- /dev/null
++++ b/src/unisim/backend/isaacgym/kinematics.py
+@@ -0,0 +1,189 @@
++"""Private, Python-3.8-compatible MJCF FK for state writes before Gym simulates.
++
++Compile once during INIT. Reset evaluation only uses cached numeric arrays;
++the supported subset is one free root and fixed/hinge/slide child bodies.
++"""
++
++from __future__ import annotations
++
++import os
++import xml.etree.ElementTree as ET
++
++import numpy as np
++
++
++def _rotate(q, v):
++    uv = np.cross(q[..., 1:], v)
++    return v + 2 * (q[..., :1] * uv + np.cross(q[..., 1:], uv))
++
++
++def _multiply(a, b):
++    return np.concatenate(
++        (
++            a[..., :1] * b[..., :1] - np.sum(a[..., 1:] * b[..., 1:], axis=-1, keepdims=True),
++            a[..., :1] * b[..., 1:] + b[..., :1] * a[..., 1:] + np.cross(a[..., 1:], b[..., 1:]),
++        ),
++        axis=-1,
++    )
++
++
++def _vector(attributes, key, default, size):
++    value = np.fromstring(attributes.get(key, default), sep=" ", dtype=np.float64)
++    if value.shape != (size,) or not np.isfinite(value).all():
++        raise ValueError("invalid MJCF %s for IsaacGym reset FK" % key)
++    return value
++
++
++def _load_xml(path, ancestors=()):
++    path = os.path.realpath(path)
++    if path in ancestors:
++        raise ValueError("cyclic MJCF include in IsaacGym reset FK")
++    root = ET.parse(path).getroot()
++    for parent in root.iter():
++        for child in list(parent):
++            if child.tag == "include":
++                included = _load_xml(
++                    os.path.join(os.path.dirname(path), child.attrib["file"]), ancestors + (path,)
++                )
++                index = list(parent).index(child)
++                parent.remove(child)
++                for item in included:
++                    parent.insert(index, item)
++                    index += 1
++    return root
++
++
++class ResetKinematics:
++    def __init__(self, path, body_names, dof_names):
++        root = _load_xml(path)
++        compilers = root.findall("compiler")
++        if any(c.get("coordinate", "local") != "local" for c in compilers):
++            raise ValueError("IsaacGym reset FK requires local MJCF coordinates")
++        angles = {c.get("angle") for c in compilers if c.get("angle") is not None}
++        if len(angles) > 1 or angles - {"radian", "degree"}:
++            raise ValueError("ambiguous MJCF angle units for IsaacGym reset FK")
++        angle_scale = 1.0 if angles == {"radian"} else np.pi / 180
++        defaults = {"": {}}
++
++        def collect_defaults(node, inherited):
++            attrs = dict(inherited)
++            joint = node.find("joint")
++            if joint is not None:
++                attrs.update(joint.attrib)
++            name = node.get("class", "")
++            if name and name in defaults:
++                raise ValueError("duplicate MJCF default class %r" % name)
++            defaults[name] = attrs
++            for child in node.findall("default"):
++                collect_defaults(child, attrs)
++
++        for node in root.findall("default"):
++            collect_defaults(node, defaults[""])
++        worldbodies = root.findall("worldbody")
++        if any(
++            node.tag in {"frame", "replicate", "composite", "flexcomp"}
++            for world in worldbodies
++            for node in world.iter()
++        ):
++            raise ValueError("unsupported MJCF body construction for IsaacGym reset FK")
++        roots = [body for world in worldbodies for body in world.findall("body")]
++        if len(roots) != 1:
++            raise ValueError("IsaacGym reset FK requires exactly one free-root body")
++        dof_indices = {name: index for index, name in enumerate(dof_names)}
++        self._nodes = []
++        names = []
++        joints = []
++
++        def visit(body, parent, inherited_class):
++            name = body.get("name")
++            if not name or name in names:
++                raise ValueError("IsaacGym reset FK requires unique named bodies")
++            if any(key in body.attrib for key in ("euler", "axisangle", "xyaxes", "zaxis")):
++                raise ValueError("IsaacGym reset FK requires body pos/quat orientation")
++            pos = _vector(body.attrib, "pos", "0 0 0", 3)
++            quat = _vector(body.attrib, "quat", "1 0 0 0", 4)
++            norm = np.linalg.norm(quat)
++            if norm < 1e-12:
++                raise ValueError("zero body quaternion for IsaacGym reset FK")
++            quat /= norm
++            childclass = body.get("childclass", inherited_class)
++            body_joints = [child for child in body if child.tag in ("joint", "freejoint")]
++            kind, dof, axis, anchor, ref = "fixed", -1, np.zeros(3), np.zeros(3), 0.0
++            if len(body_joints) > 1:
++                raise ValueError("IsaacGym reset FK supports one joint per body")
++            if body_joints:
++                joint = body_joints[0]
++                cls = joint.get("class", childclass)
++                if cls not in defaults:
++                    raise ValueError("unknown MJCF joint default class %r" % cls)
++                attrs = dict(defaults[cls])
++                attrs.update(joint.attrib)
++                kind = "free" if joint.tag == "freejoint" else attrs.get("type", "hinge")
++                if parent < 0:
++                    if kind != "free":
++                        raise ValueError("IsaacGym reset FK requires a free root")
++                else:
++                    if kind not in ("hinge", "slide"):
++                        raise ValueError("unsupported IsaacGym reset FK joint %r" % kind)
++                    joint_name = attrs.get("name")
++                    if joint_name not in dof_indices or joint_name in joints:
++                        raise ValueError("IsaacGym reset FK joint names differ from native asset")
++                    joints.append(joint_name)
++                    dof = dof_indices[joint_name]
++                    axis = _vector(attrs, "axis", "0 0 1", 3)
++                    norm = np.linalg.norm(axis)
++                    if norm < 1e-12:
++                        raise ValueError("zero joint axis for IsaacGym reset FK")
++                    axis /= norm
++                    anchor = _vector(attrs, "pos", "0 0 0", 3)
++                    ref = float(attrs.get("ref", "0")) * (angle_scale if kind == "hinge" else 1)
++                    if not np.isfinite(ref):
++                        raise ValueError("invalid joint ref for IsaacGym reset FK")
++            elif parent < 0:
++                raise ValueError("IsaacGym reset FK requires a free root")
++            index = len(names)
++            names.append(name)
++            self._nodes.append((parent, pos, quat, kind, dof, axis, anchor, ref))
++            for child in body.findall("body"):
++                visit(child, index, childclass)
++
++        visit(roots[0], -1, "")
++        if set(names) != set(body_names) or len(names) != len(body_names):
++            raise ValueError("IsaacGym reset FK body names differ from native asset")
++        if set(joints) != set(dof_names) or len(joints) != len(dof_names):
++            raise ValueError("IsaacGym reset FK joint names differ from native asset")
++        self._native_order = np.asarray([names.index(name) for name in body_names])
++
++    def evaluate(self, root, dof):
++        """Return native-order link states, with wxyz quats and world velocities."""
++        states = np.zeros((len(root), len(self._nodes), 13), dtype=np.float64)
++        states[:, 0] = root
++        for index, (parent, pos, quat, kind, joint, axis, anchor, ref) in enumerate(self._nodes):
++            if parent < 0:
++                continue
++            parent_state = states[:, parent]
++            state = states[:, index]
++            offset = _rotate(parent_state[:, 3:7], pos)
++            rotation = _multiply(parent_state[:, 3:7], quat)
++            state[:, :3] = parent_state[:, :3] + offset
++            state[:, 7:10] = parent_state[:, 7:10] + np.cross(parent_state[:, 10:13], offset)
++            state[:, 10:13] = parent_state[:, 10:13]
++            if kind in ("hinge", "slide"):
++                value, speed = dof[:, joint, 0] - ref, dof[:, joint, 1:2]
++                world_axis = _rotate(rotation, axis)
++                if kind == "hinge":
++                    half = value[:, None] / 2
++                    delta = np.concatenate((np.cos(half), np.sin(half) * axis), axis=-1)
++                    moved_rotation = _multiply(rotation, delta)
++                    moved_anchor = _rotate(moved_rotation, anchor)
++                    shift = _rotate(rotation, anchor) - moved_anchor
++                    state[:, 7:10] -= np.cross(world_axis * speed, moved_anchor)
++                    state[:, 10:13] += world_axis * speed
++                    rotation = moved_rotation
++                else:
++                    shift = world_axis * value[:, None]
++                    state[:, 7:10] += world_axis * speed
++                state[:, :3] += shift
++                state[:, 7:10] += np.cross(parent_state[:, 10:13], shift)
++            state[:, 3:7] = rotation
++        return states[:, self._native_order]
+diff --git a/src/unisim/backend/isaacgym/worker.py b/src/unisim/backend/isaacgym/worker.py
+index f77ecad..8031e4f 100644
+--- a/src/unisim/backend/isaacgym/worker.py
++++ b/src/unisim/backend/isaacgym/worker.py
+@@ -24,9 +24,9 @@ from typing import Any, Dict, List, Tuple
+ import numpy as np
+ 
+ 
+-def _load_protocol(path: str) -> Any:
+-    """Load the shared protocol module by file path (no package import)."""
+-    spec = importlib.util.spec_from_file_location("unisim_subprocess_protocol", path)
++def _load_module(path: str, name: str) -> Any:
++    """Load a worker dependency by file path (no package import)."""
++    spec = importlib.util.spec_from_file_location(name, path)
+     if spec is None or spec.loader is None:
+         raise RuntimeError(f"cannot load protocol module from {path!r}")
+     module = importlib.util.module_from_spec(spec)
+@@ -60,6 +60,10 @@ class _WorkerContext:
+         self._dof_state: Any = None
+         self._body_state: Any = None
+         self._contact_force: Any = None
++        self._reset_kinematics: Any = None
++        self._initial_reset: Any = None
++        self._pending_reset_rows: Any = None
++        self._body_com: Any = None
+         # Native rendering state (viewer and/or camera sensor).  Both live in
+         # this process because the sim handle does.
+         self.graphics_device_id = -1
+@@ -92,6 +96,7 @@ class _WorkerContext:
+ 
+         gymapi = self.gymapi
+         self.num_envs = int(payload["num_envs"])
++        self._pending_reset_rows = np.zeros(self.num_envs, dtype=bool)
+         self.sim_dt = float(payload["sim_dt"])
+         device_id = int(payload.get("device_id", 0))
+         self.use_gpu_pipeline = device_id >= 0
+@@ -149,6 +154,12 @@ class _WorkerContext:
+         self.num_dof = int(self.gym.get_asset_dof_count(asset))
+         self.num_bodies = int(self.gym.get_asset_rigid_body_count(asset))
+         self.dof_names: List[str] = list(self.gym.get_asset_dof_names(asset))
++        kinematics = _load_module(
++            os.path.join(os.path.dirname(__file__), "kinematics.py"), "unisim_isaacgym_kinematics"
++        )
++        self._reset_kinematics = kinematics.ResetKinematics(
++            model_file, list(self.gym.get_asset_rigid_body_names(asset)), self.dof_names
++        )
+ 
+         dof_props = self.gym.get_asset_dof_properties(asset)
+         # Position-controlled dofs: ctrl is the per-dof position target,
+@@ -180,8 +191,13 @@ class _WorkerContext:
+             self.env_handles.append(env_handle)
+             self.actor_handles.append(actor_handle)
+ 
++        properties = self.gym.get_actor_rigid_body_properties(
++            self.env_handles[0], self.actor_handles[0]
++        )
++        self._body_com = np.asarray([[p.com.x, p.com.y, p.com.z] for p in properties])
+         self.gym.prepare_sim(self.sim)
+         self._acquire_tensors()
++        self._refresh_tensors()
+ 
+         keyframe_qpos = payload.get("keyframe_qpos")
+         if keyframe_qpos is not None:
+@@ -277,32 +293,20 @@ class _WorkerContext:
+                 )
+             dof_pos[:, dof_index] = qpos[7 + index_by_name[dof_name]]
+ 
+-        env_ids = torch.arange(self.num_envs, dtype=torch.int32, device=self.device)
+         root = np.zeros((self.num_envs, 13), dtype=np.float32)
+         root[:, 0:3] = qpos[0:3]
+         root[:, 3:7] = protocol.wxyz_to_xyzw(qpos[None, 3:7])
+         root_view = self._root_state.view(self.num_envs, -1, 13)
+         root_view[:, 0, :] = torch.from_numpy(root).to(self.device)
+-        self.gym.set_actor_root_state_tensor_indexed(
+-            self.sim,
+-            self.gymtorch.unwrap_tensor(self._root_state),
+-            self.gymtorch.unwrap_tensor(env_ids),
+-            self.num_envs,
+-        )
+         dof = np.zeros((self.num_envs, self.num_dof, 2), dtype=np.float32)
+         dof[:, :, 0] = dof_pos
+         dof_view = self._dof_state.view(self.num_envs, self.num_dof, 2)
+         dof_view[:, :, :] = torch.from_numpy(dof).to(self.device)
+-        self.gym.set_dof_state_tensor_indexed(
+-            self.sim,
+-            self.gymtorch.unwrap_tensor(self._dof_state),
+-            self.gymtorch.unwrap_tensor(env_ids),
+-            self.num_envs,
+-        )
+-        # Root/dof tensors read back coherently without a physics step; rigid
+-        # body states stay at the spawn pose until the first STEP (the same
+-        # documented staleness as SET_STATE).
+-        self._refresh_tensors()
++        self._pending_reset_rows[:] = True
++        # Gym tensor setters are deferred until simulate. Publish the supplied
++        # state using cached FK after the host attaches its shared-memory slots.
++        root[:, 3:7] = protocol.xyzw_to_wxyz(root[:, 3:7])
++        self._initial_reset = (root, dof)
+ 
+     def _acquire_tensors(self) -> None:
+         gym = self.gym
+@@ -333,7 +337,11 @@ class _WorkerContext:
+             )
+             self.slots[name] = array
+             self._shm_handles.append(handle)
+-        self.refresh_state_slots()
++        if self._initial_reset is None:
++            self.refresh_state_slots()
++        else:
++            self._publish_reset(np.arange(self.num_envs), *self._initial_reset)
++            self._initial_reset = None
+ 
+     # ------------------------------------------------------------------ #
+     # State exchange
+@@ -347,6 +355,9 @@ class _WorkerContext:
+ 
+     def refresh_state_slots(self) -> None:
+         """Copy the latest tensor state into every host-visible shm slot."""
++        if self._pending_reset_rows is not None and self._pending_reset_rows.any():
++            # REFRESH cannot replace staged resets with the previous native state.
++            return
+         protocol = self.protocol
+         self._refresh_tensors()
+         root = self._root_state.view(self.num_envs, -1, 13)[:, 0, :].cpu().numpy()
+@@ -354,6 +365,9 @@ class _WorkerContext:
+         root_slot[:, 0:3] = root[:, 0:3]
+         root_slot[:, 3:7] = protocol.xyzw_to_wxyz(root[:, 3:7])
+         root_slot[:, 7:13] = root[:, 7:13]
++        root_slot[:, 7:10] -= np.cross(
++            root_slot[:, 10:13], protocol.quat_rotate(root_slot[:, 3:7], self._body_com[0])
++        )
+         np.copyto(
+             self.slots["dof_state"],
+             self._dof_state.view(self.num_envs, self.num_dof, 2).cpu().numpy(),
+@@ -363,15 +377,32 @@ class _WorkerContext:
+         body_slot[:, :, 0:3] = bodies[:, :, 0:3]
+         body_slot[:, :, 3:7] = protocol.xyzw_to_wxyz(bodies[:, :, 3:7])
+         body_slot[:, :, 7:13] = bodies[:, :, 7:13]
++        # Gym reports link poses but COM velocities; the public contract uses
++        # velocities at link origins, including the free root.
++        body_slot[:, :, 7:10] -= np.cross(
++            body_slot[:, :, 10:13],
++            protocol.quat_rotate(body_slot[:, :, 3:7], self._body_com),
++        )
+         np.copyto(
+             self.slots["contact_force"],
+             self._contact_force.view(self.num_envs, self.num_bodies, 3).cpu().numpy(),
+         )
+ 
++    def _publish_reset(self, env_ids: np.ndarray, root: np.ndarray, dof: np.ndarray) -> None:
++        """Update selected caches without refreshing deferred Gym tensor setters."""
++        self.slots["root_state"][env_ids] = root
++        self.slots["dof_state"][env_ids] = dof
++        self.slots["body_state"][env_ids] = self._reset_kinematics.evaluate(root, dof)
++        # Contacts require a physics solve; never expose forces from the previous pose.
++        self.slots["contact_force"][env_ids] = 0
++
+     def step(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+         nsteps = int(payload["nsteps"])
++        if nsteps <= 0:
++            raise ValueError("IsaacGym STEP requires nsteps > 0")
+         timings: Dict[str, float] = {}
+         t0 = time.perf_counter()
++        self._flush_reset_writes()
+         torch_ctrl = self.torch.from_numpy(np.ascontiguousarray(self.slots["ctrl"])).to(self.device)
+         # ctrl carries per-dof position targets (MuJoCo <position> actuator
+         # semantics); PhysX runs the PD loop with the INIT-time kp/kv/effort.
+@@ -391,6 +422,27 @@ class _WorkerContext:
+         timings["state_refresh_ms"] = (time.perf_counter() - t0) * 1000.0
+         return {"timing": timings}
+ 
++    def _flush_reset_writes(self) -> None:
++        # Gym permits each tensor setter only once between simulate calls.
++        # Multiple partial resets (including INIT then motion reset) coalesce here.
++        rows = np.flatnonzero(self._pending_reset_rows).astype(np.int32)
++        if not len(rows):
++            return
++        ids = self.torch.from_numpy(rows).to(self.device)
++        self.gym.set_actor_root_state_tensor_indexed(
++            self.sim,
++            self.gymtorch.unwrap_tensor(self._root_state),
++            self.gymtorch.unwrap_tensor(ids),
++            len(rows),
++        )
++        self.gym.set_dof_state_tensor_indexed(
++            self.sim,
++            self.gymtorch.unwrap_tensor(self._dof_state),
++            self.gymtorch.unwrap_tensor(ids),
++            len(rows),
++        )
++        self._pending_reset_rows[:] = False
++
+     def set_state(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+         protocol = self.protocol
+         torch = self.torch
+@@ -408,37 +460,27 @@ class _WorkerContext:
+         # Contract qvel carries body-frame angular velocity; IsaacGym root
+         # states take world-frame angular velocity.
+         root[:, 10:13] = protocol.quat_rotate(qpos[:, 3:7], qvel[:, 3:6]).astype(np.float32)
+-        # Indexed writes mutate the shared wrapped buffers in place and then
+-        # commit through the full tensors (the IsaacGym indexed API pattern:
+-        # one actor per env, so the global actor index equals the env index).
++        root[:, 7:10] += np.cross(
++            root[:, 10:13], protocol.quat_rotate(qpos[:, 3:7], self._body_com[0])
++        )
++        # Stage indexed writes in the wrapped buffers. STEP commits their union
++        # once; one actor per env makes the global actor index equal the env ID.
+         env_id_tensor = torch.from_numpy(env_ids.astype(np.int32)).to(self.device)
+         root_view = self._root_state.view(self.num_envs, -1, 13)
+         root_view[env_id_tensor.long(), 0, :] = torch.from_numpy(root).to(self.device)
+-        self.gym.set_actor_root_state_tensor_indexed(
+-            self.sim,
+-            self.gymtorch.unwrap_tensor(self._root_state),
+-            self.gymtorch.unwrap_tensor(env_id_tensor),
+-            count,
+-        )
+ 
+         dof = np.zeros((count, self.num_dof, 2), dtype=np.float32)
+         dof[:, :, 0] = qpos[:, 7 : 7 + self.num_dof]
+         dof[:, :, 1] = qvel[:, 6 : 6 + self.num_dof]
+         dof_view = self._dof_state.view(self.num_envs, self.num_dof, 2)
+         dof_view[env_id_tensor.long(), :, :] = torch.from_numpy(dof).to(self.device)
+-        self.gym.set_dof_state_tensor_indexed(
+-            self.sim,
+-            self.gymtorch.unwrap_tensor(self._dof_state),
+-            self.gymtorch.unwrap_tensor(env_id_tensor),
+-            count,
+-        )
++        self._pending_reset_rows[env_ids] = True
+         timings["set_state_reset_upload_ms"] = (time.perf_counter() - t0) * 1000.0
+ 
+-        # IsaacGym has no kinematics-only forward call; root/dof slots reflect
+-        # the applied state immediately, while body/contact slots stay as of
+-        # the last physics step until the next STEP.
+         t0 = time.perf_counter()
+-        self.refresh_state_slots()
++        root[:, 3:7] = qpos[:, 3:7]
++        root[:, 7:10] = qvel[:, :3]
++        self._publish_reset(env_ids, root, dof)
+         timings["set_state_host_cache_refresh_ms"] = (time.perf_counter() - t0) * 1000.0
+         return {"timing": timings}
+ 
+@@ -614,7 +656,7 @@ def main(argv: List[str]) -> int:
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--protocol", required=True, help="path to protocol.py")
+     args = parser.parse_args(argv)
+-    protocol = _load_protocol(args.protocol)
++    protocol = _load_module(args.protocol, "unisim_subprocess_protocol")
+     ctx = _WorkerContext(protocol)
+ 
+     stdin = sys.stdin.buffer
+diff --git a/src/unisim/backend/motrix/backend.py b/src/unisim/backend/motrix/backend.py
+index 8dba637..f619970 100644
+--- a/src/unisim/backend/motrix/backend.py
++++ b/src/unisim/backend/motrix/backend.py
+@@ -115,6 +115,7 @@ def _build_motrix_scene_context(
+     *,
+     add_body_sensors: bool,
+     base_name: str,
++    disable_self_collision: bool = False,
+ ) -> _MotrixSceneContext:
+     from unisim.backend.motrix.scene import (
+         _materialize_motrix_hfield_attached_scene_with_sensor_names,
+@@ -132,6 +133,7 @@ def _build_motrix_scene_context(
+             fragment_files=scene.fragment_files,
+             add_body_sensors=add_body_sensors,
+             base_name=base_name,
++            disable_self_collision=disable_self_collision,
+         )
+         return _MotrixSceneContext(model=model, sensor_names=sensor_names)
+ 
+@@ -147,6 +149,7 @@ def _build_motrix_scene_context(
+             geom_name=scene.terrain.geom_name or "floor",
+             add_body_sensors=add_body_sensors,
+             base_name=base_name,
++            disable_self_collision=disable_self_collision,
+             return_surface_sampler=True,
+         )
+     )
+@@ -171,7 +174,10 @@ class MotrixBackend(SimBackend):
+         add_body_sensors: bool = False,
+         max_iterations: int | None = DEFAULT_MOTRIX_MAX_ITERATIONS,
+         push_body_name: str | None = None,
++        disable_self_collision: bool = False,
+     ):
++        if not isinstance(disable_self_collision, bool):
++            raise TypeError("motrix disable_self_collision must be bool")
+         if not MOTRIX_AVAILABLE:
+             raise ImportError("motrixsim not available")
+ 
+@@ -179,6 +185,7 @@ class MotrixBackend(SimBackend):
+             scene,
+             add_body_sensors=add_body_sensors,
+             base_name=base_name,
++            disable_self_collision=disable_self_collision,
+         )
+         self._scene = scene
+         self.scene_artifacts_dir = None
+diff --git a/src/unisim/backend/motrix/scene.py b/src/unisim/backend/motrix/scene.py
+index 5e8aed8..78493c1 100644
+--- a/src/unisim/backend/motrix/scene.py
++++ b/src/unisim/backend/motrix/scene.py
+@@ -131,6 +131,15 @@ def _motrix_world_link_names(world: World) -> list[str]:
+     return names
+ 
+ 
++def _disable_motrix_robot_self_collision(world: World, base_name: str) -> None:
++    """Disable only the named articulation's internal contacts before compilation."""
++    roots = [body.link for body in world.hierarchy.bodies if body.link.name == base_name]
++    if len(roots) != 1:
++        raise ValueError(f"Expected one Motrix articulation root named {base_name!r}")
++    # Native MSD flag affects descendants, not terrain or other articulation contacts.
++    roots[0].disable_self_collision = True
++
++
+ def add_motrix_tracking_frame_sensors(world: World, *, base_name: str) -> None:
+     """Add Motrix-native frame sensors matching the legacy tracking sensor contract.
+ 
+@@ -172,6 +181,7 @@ def _materialize_motrix_scene_with_sensor_names(
+     fragment_files: Sequence[str] = (),
+     add_body_sensors: bool = False,
+     base_name: str = "base",
++    disable_self_collision: bool = False,
+ ) -> tuple["SceneModel", tuple[str, ...]]:
+     """Build a Motrix model and return its validated cold-path sensor names."""
+     import motrixsim.msd as msd
+@@ -187,6 +197,8 @@ def _materialize_motrix_scene_with_sensor_names(
+             _attach_motrix_scene_fragment(world, fragment_path)
+         if add_body_sensors:
+             add_motrix_tracking_frame_sensors(world, base_name=base_name)
++        if disable_self_collision:
++            _disable_motrix_robot_self_collision(world, base_name)
+         model = msd.build(world)
+         return model, _motrix_sensor_names(world)
+     finally:
+@@ -219,6 +231,7 @@ def _materialize_motrix_hfield_attached_scene_with_sensor_names(
+     add_body_sensors: bool = False,
+     base_name: str = "base",
+     return_surface_sampler: bool = False,
++    disable_self_collision: bool = False,
+ ) -> tuple[SceneModel, np.ndarray, object | None, tuple[str, ...]]:
+     """Build a Motrix terrain model and return its cold-path sensor names."""
+     import motrixsim.msd as msd
+@@ -270,6 +283,8 @@ def _materialize_motrix_hfield_attached_scene_with_sensor_names(
+         _attach_motrix_scene_fragment(world, fragment_path)
+     if add_body_sensors:
+         add_motrix_tracking_frame_sensors(world, base_name=base_name)
++    if disable_self_collision:
++        _disable_motrix_robot_self_collision(world, base_name)
+ 
+     model = msd.build(world)
+     sampler = generated.surface_sampler() if return_surface_sampler else None
+diff --git a/src/unisim/backend/mujoco/backend.py b/src/unisim/backend/mujoco/backend.py
+index 5e43cde..8582b7c 100644
+--- a/src/unisim/backend/mujoco/backend.py
++++ b/src/unisim/backend/mujoco/backend.py
+@@ -519,6 +519,7 @@ class MuJoCoBackend(SimBackend):
+         )
+         self._pre_step_control_fn = None
+         self._fixed_variant_build: _FixedVariantBuild | None = None
++        self._nominal_playback_model: mujoco.MjModel | None = None
+         self._num_envs = num_envs
+         self._np_dtype = np_dtype if np_dtype is not None else get_global_dtype()
+         self.backend_type = "mujoco"
+@@ -2062,22 +2063,34 @@ class MuJoCoBackend(SimBackend):
+             env_index: Optional vectorized environment index.
+ 
+         Returns:
+-            The backend model. With a fixed variant plan, this is that world's
+-        independently compiled visual model; runtime reset-randomization
+-        field snapshots are not copied into the playback oracle.
++            A detached visual model, compiled on the playback cold path. With
++            a fixed variant plan, this is that world's independently compiled
++            visual model; runtime reset-randomization field snapshots are not
++            copied into the playback oracle.
+         """
+         if env_index is None:
+             if self._fixed_variant_build is not None:
+                 raise ValueError("fixed-variant playback requires an explicit env_index")
+-            return self._model
++            return self._get_nominal_playback_model()
+         idx = int(env_index)
+         if idx < 0 or idx >= self._num_envs:
+             raise IndexError(f"env_index must be in [0, {self._num_envs - 1}], got {idx}")
+         if self._fixed_variant_build is None:
+-            return self._model
++            return self._get_nominal_playback_model()
+         variant = int(self._fixed_variant_build.plan.assignment[env_index])
+         return self._compile_playback_model(variant)
+ 
++    def _get_nominal_playback_model(self) -> mujoco.MjModel:
++        # Physics XML enables discardvisual. Keep the visual twin detached so
++        # per-env playback export preserves meshes, materials, and textures.
++        if not self.scene_visual_model_file:
++            return self._model
++        if self._nominal_playback_model is None:
++            model = mujoco.MjModel.from_xml_path(str(self.scene_visual_model_file))
++            self._configure_model(model)
++            self._nominal_playback_model = model
++        return self._nominal_playback_model
++
+     def _compile_playback_model(self, variant: int) -> mujoco.MjModel:
+         """Cold-compile a detached visual oracle without retaining V full models."""
+         descriptor = self._fixed_variant_build.plan.variants[variant]
+diff --git a/src/unisim/backend/subprocess_ipc/backend.py b/src/unisim/backend/subprocess_ipc/backend.py
+index fe4ed61..1006523 100644
+--- a/src/unisim/backend/subprocess_ipc/backend.py
++++ b/src/unisim/backend/subprocess_ipc/backend.py
+@@ -960,7 +960,8 @@ class MjcfSubprocessBackend(SimBackend):
+         return np.asarray(resolved, dtype=np.int32)
+ 
+     def get_motion_body_ids(self, names: Sequence[str]) -> np.ndarray:
+-        return self.get_body_ids(names)
++        # Motion datasets retain MJCF worldbody at index 0; worker bodies do not.
++        return self.get_body_ids(names) + 1
+ 
+     def get_joint_range(self) -> np.ndarray | None:
+         """Per-joint ``range`` from the MJCF (pure XML, available pre-materialize).
+@@ -1393,7 +1394,9 @@ class MjcfSubprocessBackend(SimBackend):
+             body_frame = np_quat_apply_inverse_batched(state[:, 3:7], state[:, 10:13])
+             return np_quat_apply_inverse_batched(local_quat, body_frame).astype(np.float32)
+         if kind == KIND_LOCAL_LINVEL:
+-            body_frame = np_quat_apply_inverse_batched(state[:, 3:7], state[:, 7:10])
++            offset = np_quat_apply_batched(state[:, 3:7], local_pos)
++            site_velocity = state[:, 7:10] + np.cross(state[:, 10:13], offset)
++            body_frame = np_quat_apply_inverse_batched(state[:, 3:7], site_velocity)
+             return np_quat_apply_inverse_batched(local_quat, body_frame).astype(np.float32)
+         if kind == KIND_FRAMEQUAT:
+             return np_quat_mul_batched(state[:, 3:7], local_quat).astype(np.float32)
+diff --git a/src/unisim/factory.py b/src/unisim/factory.py
+index 528aa4e..3d39440 100644
+--- a/src/unisim/factory.py
++++ b/src/unisim/factory.py
+@@ -38,6 +38,7 @@ def create_backend(
+ 
+     position_actuator_gains = kwargs.pop("position_actuator_gains", None)
+     motrix_max_iterations = kwargs.pop("motrix_max_iterations", None)
++    motrix_disable_self_collision = kwargs.pop("motrix_disable_self_collision", None)
+     post_step_forward_sensor = kwargs.pop("post_step_forward_sensor", None)
+     iterations = kwargs.pop("iterations", None)
+     chunk_size = kwargs.pop("chunk_size", None)
+@@ -63,6 +64,13 @@ def create_backend(
+     genesis_friction_cone = kwargs.pop("genesis_friction_cone", None)
+     genesis_solver_iterations = kwargs.pop("genesis_solver_iterations", None)
+     genesis_device_id = kwargs.pop("genesis_device_id", None)
++    genesis_enable_self_collision = kwargs.pop("genesis_enable_self_collision", None)
++    for name, value in (
++        ("motrix_disable_self_collision", motrix_disable_self_collision),
++        ("genesis_enable_self_collision", genesis_enable_self_collision),
++    ):
++        if value is not None and not isinstance(value, bool):
++            raise TypeError(f"{name} must be bool or None")
+     isaacsim_device_id = kwargs.pop("isaacsim_device_id", None)
+     isaacsim_worker_timeout_s = kwargs.pop("isaacsim_worker_timeout_s", None)
+     isaacsim_render_mode = kwargs.pop("isaacsim_render_mode", None)
+@@ -107,6 +115,8 @@ def create_backend(
+             kwargs["add_body_sensors"] = True
+         if motrix_max_iterations is not None:
+             kwargs["max_iterations"] = motrix_max_iterations
++        if motrix_disable_self_collision is not None:
++            kwargs["disable_self_collision"] = motrix_disable_self_collision
+         return MotrixBackend(scene, num_envs, sim_dt, **kwargs)
+     if backend_type == "drake":
+         from .backend.drake.backend import DrakeBackend
+@@ -201,6 +211,7 @@ def create_backend(
+         kwargs["friction_cone"] = genesis_friction_cone
+         kwargs["solver_iterations"] = genesis_solver_iterations
+         kwargs["device_id"] = genesis_device_id
++        kwargs["enable_self_collision"] = genesis_enable_self_collision
+         return GenesisBackend(scene, num_envs, sim_dt, **kwargs)
+     if backend_type == "isaacgym":
+         if scene is None and "runtime" not in kwargs and "worker_command" not in kwargs:
+diff --git a/tests/test_genesis_reset_kinematics.py b/tests/test_genesis_reset_kinematics.py
+new file mode 100644
+index 0000000..b2b04cd
+--- /dev/null
++++ b/tests/test_genesis_reset_kinematics.py
+@@ -0,0 +1,88 @@
++"""Optional native regression for non-upright, moving reset states."""
++
++from __future__ import annotations
++
++import numpy as np
++import pytest
++
++from unisim.backend.genesis.backend import GenesisBackend
++from unisim.scene import SceneCfg
++from unisim.utils.rotation import (
++    np_quat_apply_batched,
++    np_quat_apply_inverse_batched,
++    np_quat_mul_batched,
++)
++
++
++def test_genesis_reset_refreshes_body_and_sensor_velocity_without_step(tmp_path, monkeypatch):
++    pytest.importorskip("genesis")
++    torch = pytest.importorskip("torch")
++    if not torch.cuda.is_available():
++        pytest.skip("Genesis numerical reset regression requires a CUDA device")
++    model = tmp_path / "moving_reset.xml"
++    model.write_text(
++        """<mujoco><worldbody>
++          <geom name="floor" type="plane" size="0 0 0.05"/>
++          <body name="base" pos="0 0 1"><freejoint/>
++            <geom type="sphere" size="0.05" mass="1"/>
++            <body name="rotor" pos="0.2 0 0"><joint name="hinge" axis="0 0 1"/>
++              <geom type="sphere" size="0.03" mass="0.2"/>
++              <site name="imu" pos="0.1 0 0"/>
++            </body>
++          </body>
++        </worldbody><actuator><position name="hinge" joint="hinge" kp="10" kv="1"/>
++        </actuator><sensor><velocimeter name="velocity" site="imu"/>
++          <gyro name="gyro" site="imu"/></sensor></mujoco>""",
++        encoding="utf-8",
++    )
++    backend = GenesisBackend(SceneCfg(model_file=str(model)), 2, 0.005, base_name="base")
++    try:
++        backend.materialize()
++
++        def no_step(*args, **kwargs):
++            pytest.fail("reset must not advance physics to refresh kinematics")
++
++        monkeypatch.setattr(backend._scene, "step", no_step)
++        half = np.sqrt(0.5)
++        qpos = np.array([[1, 2, 3, half, half, 0, 0, 0.4], [3, 2, 1, 0, 1, 0, 0, -0.5]], np.float32)
++        qvel = np.array(
++            [[1, 2, 3, 0.3, -0.4, 1.2, 2.3], [-2, 1, 3, -0.5, 0.7, -1, -1.4]], np.float32
++        )
++        ids = backend.get_body_ids(["base", "rotor"])
++        for rows in (np.array([0, 1], np.int32), np.array([1], np.int32)):
++            if rows.size == 1:
++                qpos[1, 3:7] = [half, 0, half, 0]
++                qpos[1, -1] = 0.9
++                qvel[1] *= -0.6
++            backend.set_state(rows, qpos[rows], qvel[rows])
++            root_quat = qpos[:, 3:7]
++            joint_quat = np.zeros((2, 4), np.float32)
++            joint_quat[:, 0] = np.cos(qpos[:, -1] / 2)
++            joint_quat[:, 3] = np.sin(qpos[:, -1] / 2)
++            rotor_quat = np_quat_mul_batched(root_quat, joint_quat)
++            offset = np_quat_apply_batched(root_quat, np.tile([0.2, 0, 0], (2, 1)))
++            root_ang = np_quat_apply_batched(root_quat, qvel[:, 3:6])
++            joint_ang = np.column_stack((np.zeros((2, 2)), qvel[:, -1]))
++            rotor_ang = root_ang + np_quat_apply_batched(root_quat, joint_ang)
++            rotor_vel = qvel[:, :3] + np.cross(root_ang, offset)
++            expected = (
++                np.stack((qpos[:, :3], qpos[:, :3] + offset), axis=1),
++                np.stack((root_quat, rotor_quat), axis=1),
++                np.stack((qvel[:, :3], rotor_vel), axis=1),
++                np.stack((root_ang, rotor_ang), axis=1),
++            )
++            actual = backend.get_body_state_w(ids)
++            for field, wanted in zip(actual, expected, strict=True):
++                np.testing.assert_allclose(field, wanted, atol=2e-5)
++            sensor_offset = np_quat_apply_batched(rotor_quat, np.tile([0.1, 0, 0], (2, 1)))
++            sensor_vel = np_quat_apply_inverse_batched(
++                rotor_quat, rotor_vel + np.cross(rotor_ang, sensor_offset)
++            )
++            np.testing.assert_allclose(backend.get_sensor_data("velocity"), sensor_vel, atol=2e-5)
++            np.testing.assert_allclose(
++                backend.get_sensor_data("gyro"),
++                np_quat_apply_inverse_batched(rotor_quat, rotor_ang),
++                atol=2e-5,
++            )
++    finally:
++        backend.close()
+diff --git a/tests/test_isaacgym_reset.py b/tests/test_isaacgym_reset.py
+new file mode 100644
+index 0000000..9705266
+--- /dev/null
++++ b/tests/test_isaacgym_reset.py
+@@ -0,0 +1,310 @@
++"""Reset kinematics and deferred-tensor handling, without importing the Gym SDK."""
++
++from __future__ import annotations
++
++import ast
++import os
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock
++
++import numpy as np
++import pytest
++
++from unisim.backend.isaacgym import kinematics, worker
++from unisim.backend.isaacgym.backend import IsaacGymBackend
++from unisim.backend.subprocess_ipc import protocol
++from unisim.scene import SceneCfg
++
++
++@pytest.fixture
++def chain(tmp_path):
++    model = tmp_path / "chain.xml"
++    model.write_text(
++        """<mujoco><default><default class="hinge">
++          <joint axis="0 0 2" pos="1 0 0" ref="30"/>
++        </default></default><worldbody><body name="root"><freejoint/>
++          <body name="arm" pos="1 0 0"><joint class="hinge" name="turn"/>
++            <body name="tip" pos="2 0 0"/>
++            <body name="slider" pos="0 1 0"><joint name="slide" type="slide"
++              axis="0 1 0" ref="0.1"/></body>
++          </body></body></worldbody></mujoco>""",
++        encoding="utf-8",
++    )
++    scene = tmp_path / "scene.xml"
++    scene.write_text('<mujoco><include file="chain.xml"/></mujoco>', encoding="utf-8")
++    return scene
++
++
++def _root_state():
++    root = np.zeros((1, 13))
++    root[:, :3] = [1, 2, 3]
++    root[:, 3:7] = [np.sqrt(0.5), 0, 0, np.sqrt(0.5)]
++    return root
++
++
++def test_fk_joint_anchor_ref_units_native_order_and_cold_include(chain, monkeypatch):
++    fk = kinematics.ResetKinematics(chain, ["tip", "root", "slider", "arm"], ["slide", "turn"])
++    monkeypatch.setattr(kinematics.ET, "parse", Mock(side_effect=AssertionError("hot XML parse")))
++    states = fk.evaluate(_root_state(), np.array([[[0.3, 0], [2 * np.pi / 3, 0]]]))
++    np.testing.assert_allclose(
++        states[0, :, :3], [[0, 4, 3], [1, 2, 3], [2, 2.8, 3], [2, 4, 3]], atol=1e-14
++    )
++    np.testing.assert_allclose(states[0, [0, 2, 3], 3:7], [[0, 0, 0, 1]] * 3, atol=1e-15)
++    np.testing.assert_array_equal(states[:, :, 7:], 0)
++
++
++def test_fk_world_velocities_match_pose_derivatives(chain):
++    fk = kinematics.ResetKinematics(chain, ["root", "arm", "tip", "slider"], ["turn", "slide"])
++    root = _root_state()
++    root[:, 7:13] = [0.2, -0.3, 0.1, 0.4, -0.5, 0.6]
++    dof = np.array([[[0.7, 0.8], [0.3, -0.2]]])
++    states = fk.evaluate(root, dof)
++    epsilon = 1e-6
++    moved_root = root.copy()
++    moved_root[:, :3] += epsilon * root[:, 7:10]
++    # Integrate the free root with a world-axis rotation.
++    omega = root[0, 10:13]
++    angle = np.linalg.norm(omega) * epsilon
++    delta = np.r_[np.cos(angle / 2), omega / np.linalg.norm(omega) * np.sin(angle / 2)]
++    moved_root[:, 3:7] = kinematics._multiply(delta, root[:, 3:7])
++    moved_dof = dof.copy()
++    moved_dof[:, :, 0] += epsilon * dof[:, :, 1]
++    moved = fk.evaluate(moved_root, moved_dof)
++    np.testing.assert_allclose(
++        (moved[:, :, :3] - states[:, :, :3]) / epsilon, states[:, :, 7:10], atol=2e-6
++    )
++    inverse = states[:, :, 3:7].copy()
++    inverse[:, :, 1:] *= -1
++    world_delta = kinematics._multiply(moved[:, :, 3:7], inverse)
++    np.testing.assert_allclose(2 * world_delta[:, :, 1:] / epsilon, states[:, :, 10:13], atol=1e-6)
++
++
++@pytest.mark.parametrize(
++    "replace, replacement, message",
++    [
++        ("<freejoint/>", "", "free root"),
++        ('name="arm" pos="1 0 0"', 'name="arm" euler="0 0 30"', "pos/quat"),
++        ('name="turn"', 'name="turn" type="ball"', "joint"),
++        ('name="turn"', 'name="turn" axis="0 0 0"', "zero joint axis"),
++        ('name="turn"', 'name="turn" ref="nan"', "joint ref"),
++        ('<body name="tip" pos="2 0 0"/>', "<frame/>", "body construction"),
++    ],
++)
++def test_unsupported_xml_fails_closed(chain, replace, replacement, message):
++    included = chain.parent / "chain.xml"
++    included.write_text(included.read_text().replace(replace, replacement))
++    with pytest.raises(ValueError, match=message):
++        kinematics.ResetKinematics(chain, ["root", "arm", "tip", "slider"], ["turn", "slide"])
++
++
++class _Tensor:
++    def __init__(self, array):
++        self.array = np.asarray(array)
++
++    def view(self, *shape):
++        return _Tensor(self.array.reshape(shape))
++
++    reshape = view
++
++    def contiguous(self):
++        return self
++
++    def to(self, _device):
++        return self
++
++    def long(self):
++        return self.array.astype(np.int64)
++
++    def cpu(self):
++        return self
++
++    def numpy(self):
++        return self.array
++
++    def __getitem__(self, key):
++        return _Tensor(self.array[key])
++
++    def __setitem__(self, key, value):
++        self.array[key] = value.array
++
++
++def _context(chain):
++    ctx = worker._WorkerContext(protocol)
++    ctx.num_envs, ctx.num_dof, ctx.num_bodies = 3, 2, 4
++    ctx._pending_reset_rows = np.zeros(3, dtype=bool)
++    ctx._body_com = np.zeros((4, 3))
++    ctx.dof_names = ["turn", "slide"]
++    ctx.torch = SimpleNamespace(
++        from_numpy=_Tensor,
++        int32=np.int32,
++        arange=lambda n, **kwargs: _Tensor(np.arange(n, dtype=kwargs["dtype"])),
++    )
++    ctx.gymtorch = SimpleNamespace(unwrap_tensor=lambda tensor: tensor.array)
++    ctx.gym = SimpleNamespace(
++        set_actor_root_state_tensor_indexed=Mock(),
++        set_dof_state_tensor_indexed=Mock(),
++    )
++    ctx._root_state = _Tensor(np.zeros((3, 13)))
++    ctx._dof_state = _Tensor(np.zeros((3, 2, 2)))
++    ctx._reset_kinematics = kinematics.ResetKinematics(
++        chain,
++        ["root", "arm", "tip", "slider"],
++        ctx.dof_names,
++    )
++    ctx.slots = {
++        name: np.full(shape, 123, dtype=protocol.slot_dtype(name))
++        for name, shape in protocol.slot_shapes(3, 2, 4).items()
++    }
++    return ctx
++
++
++def test_reset_publishes_selected_rows_without_simulate_or_refresh(chain, monkeypatch):
++    ctx = _context(chain)
++    monkeypatch.setattr(kinematics.ET, "parse", Mock(side_effect=AssertionError("hot XML parse")))
++    ctx.slots["reset_env_ids"][:2] = [2, 0]
++    ctx.slots["reset_qpos"][:2] = [
++        [1, 2, 3, np.sqrt(0.5), 0, 0, np.sqrt(0.5), 0.7, 0.3],
++        [3, 2, 1, 1, 0, 0, 0, 0.8, 0.4],
++    ]
++    ctx.slots["reset_qvel"][:2] = [[0.2, 0.3, 0.4, 1, 0, 0, 0.8, -0.2], [0] * 8]
++    ctx.set_state({"count": 2})
++    for name in ("root_state", "dof_state", "body_state", "contact_force"):
++        np.testing.assert_array_equal(ctx.slots[name][1], 123)
++    np.testing.assert_allclose(ctx.slots["root_state"][2, 10:13], [0, 1, 0], atol=1e-7)
++    np.testing.assert_array_equal(
++        ctx.slots["root_state"][[2, 0], :7], ctx.slots["reset_qpos"][:2, :7]
++    )
++    np.testing.assert_array_equal(
++        ctx.slots["dof_state"][[2, 0], :, 0], ctx.slots["reset_qpos"][:2, 7:]
++    )
++    np.testing.assert_array_equal(ctx.slots["contact_force"][[2, 0]], 0)
++    assert np.isfinite(ctx.slots["body_state"][[2, 0]]).all()
++    assert ctx.gym.set_actor_root_state_tensor_indexed.call_count == 0
++    assert ctx.gym.set_dof_state_tensor_indexed.call_count == 0
++    np.testing.assert_array_equal(ctx._pending_reset_rows, [True, False, True])
++    ctx.slots["reset_env_ids"][:1] = [0]
++    ctx.slots["reset_qpos"][0, 0] = 42
++    ctx.set_state({"count": 1})
++    worker._dispatch(ctx, protocol, protocol.CMD_REFRESH, None)
++    assert ctx.slots["root_state"][0, 0] == 42
++    ctx._flush_reset_writes()
++    ctx._flush_reset_writes()
++    assert ctx.gym.set_actor_root_state_tensor_indexed.call_count == 1
++    assert ctx.gym.set_dof_state_tensor_indexed.call_count == 1
++    arguments = ctx.gym.set_actor_root_state_tensor_indexed.call_args.args
++    np.testing.assert_array_equal(arguments[2], [0, 2])
++    assert arguments[1][0, 0] == 42
++    assert arguments[3] == 2
++    # Any simulate or refresh would raise: the SDK double only exposes setters.
++
++
++def test_initial_keyframe_has_current_fk_and_no_refresh(chain):
++    ctx = _context(chain)
++    qpos = np.r_[_root_state()[0, :7], 0.3, 2 * np.pi / 3]
++    ctx._apply_initial_keyframe(qpos, ["slide", "turn"])
++    ctx.attach_slots({"slots": {}})
++    assert ctx.gym.set_actor_root_state_tensor_indexed.call_count == 0
++    assert ctx._initial_reset is None
++    np.testing.assert_allclose(ctx.slots["body_state"][:, 2, :3], [[0, 4, 3]] * 3, atol=1e-6)
++    np.testing.assert_array_equal(ctx.slots["body_state"][:, :, 7:], 0)
++    np.testing.assert_array_equal(ctx.slots["contact_force"], 0)
++
++
++def test_native_com_velocity_conversion_preserves_link_contract(chain):
++    ctx = _context(chain)
++    ctx._body_com[:, 0] = 0.1
++    ctx.slots["reset_env_ids"][:] = np.arange(3)
++    ctx.slots["reset_qpos"][:] = np.r_[_root_state()[0, :7], 0.7, 0.3]
++    ctx.slots["reset_qvel"][:] = [1, 2, 3, 0, 0, 2, 1, 0]
++    ctx.set_state({"count": 3})
++    np.testing.assert_allclose(ctx._root_state.array[:, 7:10], [[0.8, 2, 3]] * 3, atol=1e-7)
++    expected_root = ctx.slots["root_state"].copy()
++    expected_body = ctx.slots["body_state"].copy()
++    native_body = expected_body.copy()
++    native_body[:, :, 7:10] += np.cross(
++        native_body[:, :, 10:13], protocol.quat_rotate(native_body[:, :, 3:7], ctx._body_com)
++    )
++    native_body[:, :, 3:7] = protocol.wxyz_to_xyzw(native_body[:, :, 3:7])
++    ctx._body_state = _Tensor(native_body)
++    ctx._contact_force = _Tensor(np.zeros((3, 4, 3)))
++    ctx._refresh_tensors = lambda: None
++    ctx._pending_reset_rows[:] = False
++    ctx.refresh_state_slots()
++    np.testing.assert_allclose(ctx.slots["root_state"], expected_root, atol=1e-7)
++    np.testing.assert_allclose(ctx.slots["body_state"], expected_body, atol=1e-6)
++
++
++def test_step_commits_pending_rows_once_before_simulate(chain):
++    ctx = _context(chain)
++    ctx._pending_reset_rows[:] = True
++    calls = Mock()
++    ctx.gym = calls
++    ctx.refresh_state_slots = lambda: calls.refresh()
++    ctx.step({"nsteps": 2})
++    ctx.step({"nsteps": 1})
++    assert [entry[0] for entry in calls.mock_calls] == [
++        "set_actor_root_state_tensor_indexed",
++        "set_dof_state_tensor_indexed",
++        "set_dof_position_target_tensor",
++        "simulate",
++        "fetch_results",
++        "simulate",
++        "fetch_results",
++        "refresh",
++        "set_dof_position_target_tensor",
++        "simulate",
++        "fetch_results",
++        "refresh",
++    ]
++
++
++@pytest.mark.skipif(os.getenv("UNISIM_TEST_ISAACGYM") != "1", reason="opt-in vendor SDK test")
++def test_native_gym_reset_and_link_velocities(tmp_path):
++    model = tmp_path / "native.xml"
++    model.write_text("""<mujoco><compiler angle="radian"/><worldbody>
++      <body name="root" pos="0 0 3"><freejoint/>
++        <inertial pos="0.1 0 0" mass="1" diaginertia="0.1 0.1 0.1"/><geom size="0.1"/>
++        <body name="arm" pos="0.5 0 0"><joint name="turn" axis="0 0 1"/>
++          <inertial pos="0.2 0 0" mass="1" diaginertia="0.1 0.1 0.1"/><geom size="0.05"/>
++        </body></body></worldbody><actuator>
++      <position joint="turn" kp="0" kv="0" forcerange="-100 100"/></actuator></mujoco>""")
++    backend = IsaacGymBackend(SceneCfg(model_file=str(model)), 2, 0.0001, base_name="root")
++    try:
++        backend.materialize()
++        qpos = np.array([[1, 2, 3, 1, 0, 0, 0, 0.7], [2, 3, 4, 1, 0, 0, 0, 0.8]])
++        qvel = np.array([[0.2, 0.3, 0.4, 0, 0, 2, 1], [0.4, 0.5, 0.6, 0, 0, 3, -1]])
++        backend.set_state(np.array([0, 1]), qpos, qvel)
++        before = backend.get_body_pos_w(np.array([0, 1])).copy()
++        backend.set_state(np.array([1]), qpos[1:], qvel[1:])
++        np.testing.assert_array_equal(backend.get_body_pos_w(np.array([0, 1])), before)
++        backend.step(np.zeros((2, 1)))
++        np.testing.assert_allclose(
++            (backend.get_base_pos() - qpos[:, :3]) / 0.0001, qvel[:, :3], atol=0.02
++        )
++        root = np.concatenate(
++            (
++                backend.get_base_pos(),
++                backend.get_base_quat(),
++                backend.get_base_lin_vel(),
++                backend.get_base_ang_vel(),
++            ),
++            axis=-1,
++        )
++        dof = np.stack((backend.get_dof_pos(), backend.get_dof_vel()), axis=-1)
++        expected = kinematics.ResetKinematics(model, ["root", "arm"], ["turn"]).evaluate(root, dof)
++        np.testing.assert_allclose(
++            backend.get_body_pos_w(np.array([0, 1])), expected[:, :, :3], atol=1e-5
++        )
++        np.testing.assert_allclose(
++            backend.get_body_lin_vel_w(np.array([0, 1])), expected[:, :, 7:10], atol=1e-5
++        )
++    finally:
++        backend.close()
++
++
++def test_standalone_worker_dependencies_keep_python38_syntax():
++    for module in (kinematics, worker):
++        ast.parse(Path(module.__file__).read_text(), feature_version=(3, 8))
++    loaded = worker._load_module(kinematics.__file__, "standalone_reset_kinematics")
++    assert loaded.ResetKinematics.__name__ == "ResetKinematics"
+diff --git a/tests/test_motion_body_ids.py b/tests/test_motion_body_ids.py
+new file mode 100644
+index 0000000..d661245
+--- /dev/null
++++ b/tests/test_motion_body_ids.py
+@@ -0,0 +1,96 @@
++"""Motion datasets preserve MJCF body order, including worldbody at index zero."""
++
++from __future__ import annotations
++
++from pathlib import Path
++
++import numpy as np
++import pytest
++
++from unisim.backend.genesis.backend import GenesisBackend
++from unisim.backend.genesis.materialization import scan_genesis_model_metadata
++from unisim.backend.isaacgym.backend import IsaacGymBackend
++from unisim.backend.isaacsim.backend import IsaacSimBackend
++from unisim.backend.subprocess_ipc.sensors import KIND_LOCAL_LINVEL, SceneSensorSpec
++from unisim.scene import SceneCfg
++
++
++@pytest.fixture
++def motion_scene(tmp_path: Path) -> SceneCfg:
++    path = tmp_path / "motion.xml"
++    path.write_text(
++        """<mujoco><worldbody>
++          <body name="pelvis"><freejoint/><geom size="0.1"/>
++            <body name="torso"><joint name="waist"/><geom size="0.1"/></body>
++            <body name="foot"><joint name="ankle"/><geom size="0.1"/></body>
++          </body>
++        </worldbody><actuator>
++          <position name="waist" joint="waist" kp="10"/>
++          <position name="ankle" joint="ankle" kp="10"/>
++        </actuator></mujoco>""",
++        encoding="utf-8",
++    )
++    return SceneCfg(model_file=str(path))
++
++
++@pytest.mark.parametrize("backend_cls", [IsaacGymBackend, IsaacSimBackend])
++def test_worker_motion_ids_keep_world_slot_and_requested_order(backend_cls, motion_scene):
++    backend = backend_cls(motion_scene, 2, 0.005, base_name="pelvis")
++    try:
++        names = ["foot", "pelvis", "torso", "pelvis"]
++        np.testing.assert_array_equal(backend.get_body_ids(names), [2, 0, 1, 0])
++        ids = backend.get_motion_body_ids(names)
++        np.testing.assert_array_equal(ids, [3, 1, 2, 1])
++        assert ids.dtype == np.int32
++        dataset = np.array(["world", "pelvis", "torso", "foot"])
++        np.testing.assert_array_equal(dataset[ids], names)
++        assert backend.get_motion_body_ids([]).shape == (0,)
++        with pytest.raises(ValueError, match="missing"):
++            backend.get_motion_body_ids(["missing"])
++    finally:
++        backend.close()
++
++
++def test_genesis_motion_ids_keep_existing_world_slot(motion_scene):
++    mujoco = pytest.importorskip("mujoco")
++    metadata = scan_genesis_model_metadata(mujoco, motion_scene)
++    assert metadata.body_names == ("world", "pelvis", "torso", "foot")
++    # Only test cold metadata mapping; no Genesis session or GPU is needed.
++    backend = GenesisBackend.__new__(GenesisBackend)
++    backend._body_ids = {name: index for index, name in enumerate(metadata.body_names)}
++    names = ["foot", "pelvis", "torso", "pelvis"]
++    ids = backend.get_motion_body_ids(names)
++    np.testing.assert_array_equal(ids, [3, 1, 2, 1])
++    np.testing.assert_array_equal(np.asarray(metadata.body_names)[ids], names)
++    assert ids.dtype == np.int32
++    assert backend.get_motion_body_ids([]).shape == (0,)
++    with pytest.raises(ValueError, match="missing"):
++        backend.get_motion_body_ids(["missing"])
++
++
++@pytest.mark.parametrize("backend_cls", [IsaacGymBackend, IsaacSimBackend])
++def test_offset_velocimeter_rotates_body_and_site_frames(backend_cls, motion_scene, monkeypatch):
++    backend = backend_cls(motion_scene, 2, 0.005, base_name="pelvis")
++    try:
++        monkeypatch.setattr(backend, "_require_state", lambda _: None)
++        half = np.sqrt(0.5)
++        spec = SceneSensorSpec(
++            name="speed",
++            kind=KIND_LOCAL_LINVEL,
++            body_name="pelvis",
++            local_pos=(0.5, 0, 0),
++            local_quat=(half, half, 0, 0),
++        )
++        backend._sensor_map = {"speed": (spec, 0)}
++        state = np.zeros((2, 1, 13), dtype=np.float32)
++        state[:, 0, 3:7] = (half, 0, 0, half)
++        state[:, 0, 7:10] = (1, 2, 3)
++        state[:, 0, 10:13] = [(0, 0, 2), (2, 0, 0)]
++        backend._slots["body_state"] = state
++        # World site velocities are (0, 2, 3) and (1, 2, 4), then rotate
++        # through inverse body Rz(90) and inverse local-site Rx(90).
++        np.testing.assert_allclose(
++            backend.get_sensor_data("speed"), [[2, 3, 0], [2, 4, 1]], atol=1e-6
++        )
++    finally:
++        backend.close()

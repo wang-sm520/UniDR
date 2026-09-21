@@ -1,0 +1,79 @@
+Motphys profiler initialized: disabled
+Phase 1: module-mode import (34 modules)...
+  ✓ scripts.benchmark.compute.benchmark_ane_inference
+  ✓ scripts.benchmark.compute.benchmark_ane_peak
+  ✓ scripts.benchmark.compute.benchmark_backends
+  ✓ scripts.benchmark.compute.benchmark_conversions
+  ✓ scripts.benchmark.compute.benchmark_mlp_inference
+  ✓ scripts.benchmark.compute.benchmark_mlx_compile
+  ✓ scripts.benchmark.env.benchmark_env_overhead_parallel
+  ✓ scripts.benchmark.env.benchmark_env_step
+  ✓ scripts.benchmark.env.benchmark_env_step_phase_cpu
+  ✓ scripts.benchmark.env.benchmark_mujoco_pool_thread_scaling
+  ✓ scripts.benchmark.env.benchmark_np_env_shard_throughput
+  - scripts.benchmark.env.benchmark_postprocess (skipped: needs 'mlx')
+  ✓ scripts.benchmark.env.benchmark_simtool_real_fixed_tools
+  ✓ scripts.benchmark.ipc.benchmark_ipc_buffer_layout
+  ✓ scripts.benchmark.ipc.benchmark_ipc_index_sort
+  ✓ scripts.benchmark.ipc.benchmark_ipc_weight_sync
+  ✓ scripts.benchmark.physics.benchmark_mjmodel_memory
+  ✓ scripts.benchmark.physics.benchmark_motrix_set_state_ab
+  ✓ scripts.benchmark.physics.benchmark_mujoco_backend_step_detail
+  ✓ scripts.benchmark.physics.benchmark_mujoco_rollout_model_sharing
+  ✓ scripts.benchmark.physics.benchmark_mujoco_vs_motrix
+  ✓ scripts.benchmark.physics.benchmark_physics_step_genesis
+  ✓ scripts.benchmark.physics.benchmark_physics_step_isaacgym
+  ✓ scripts.benchmark.physics.benchmark_physics_step_isaacsim
+  ✓ scripts.benchmark.physics.benchmark_physics_step_mj_step
+  ✓ scripts.benchmark.physics.benchmark_physics_step_motrixsim
+  ✓ scripts.benchmark.physics.benchmark_physics_step_mujoco_warp
+  ✓ scripts.benchmark.physics.benchmark_sim
+  ✓ scripts.benchmark.rl.benchmark_gpu_buffer
+  ✓ scripts.benchmark.rl.benchmark_offpolicy_collector_active
+  ✓ scripts.benchmark.rl.benchmark_offpolicy_dp_scaling
+  ✓ scripts.benchmark.rl.benchmark_replay_buffer_placement
+  ✓ scripts.benchmark.rl.benchmark_sac_replay_buffer_sampling
+  ✓ scripts.benchmark.rl.benchmark_sample_overhead
+
+Phase 2: script-mode import (35 entrypoints)...
+  ✓ scripts/benchmark/benchmark_drake_performance.py
+  ✓ scripts/benchmark/compute/benchmark_ane_inference.py
+  ✓ scripts/benchmark/compute/benchmark_ane_peak.py
+  ✓ scripts/benchmark/compute/benchmark_backends.py
+  ✓ scripts/benchmark/compute/benchmark_conversions.py
+  ✓ scripts/benchmark/compute/benchmark_mlp_inference.py
+  ✓ scripts/benchmark/compute/benchmark_mlx_compile.py
+  ✓ scripts/benchmark/env/benchmark_env_overhead_parallel.py
+  ✓ scripts/benchmark/env/benchmark_env_step.py
+  ✓ scripts/benchmark/env/benchmark_env_step_phase_cpu.py
+  ✓ scripts/benchmark/env/benchmark_mujoco_pool_thread_scaling.py
+  ✓ scripts/benchmark/env/benchmark_np_env_shard_throughput.py
+  - scripts/benchmark/env/benchmark_postprocess.py (skipped: needs 'mlx')
+  ✓ scripts/benchmark/env/benchmark_simtool_real_fixed_tools.py
+  ✓ scripts/benchmark/ipc/benchmark_ipc_buffer_layout.py
+  ✓ scripts/benchmark/ipc/benchmark_ipc_index_sort.py
+  ✓ scripts/benchmark/ipc/benchmark_ipc_weight_sync.py
+  ✓ scripts/benchmark/physics/benchmark_mjmodel_memory.py
+  ✓ scripts/benchmark/physics/benchmark_motrix_set_state_ab.py
+  ✓ scripts/benchmark/physics/benchmark_mujoco_backend_step_detail.py
+  ✓ scripts/benchmark/physics/benchmark_mujoco_rollout_model_sharing.py
+  ✓ scripts/benchmark/physics/benchmark_mujoco_vs_motrix.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_genesis.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_isaacgym.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_isaacsim.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_mj_step.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_motrixsim.py
+  ✓ scripts/benchmark/physics/benchmark_physics_step_mujoco_warp.py
+  ✓ scripts/benchmark/physics/benchmark_sim.py
+  ✓ scripts/benchmark/rl/benchmark_gpu_buffer.py
+  ✓ scripts/benchmark/rl/benchmark_offpolicy_collector_active.py
+  ✓ scripts/benchmark/rl/benchmark_offpolicy_dp_scaling.py
+  ✓ scripts/benchmark/rl/benchmark_replay_buffer_placement.py
+  ✓ scripts/benchmark/rl/benchmark_sac_replay_buffer_sampling.py
+  ✓ scripts/benchmark/rl/benchmark_sample_overhead.py
+
+[module-mode] Passed: 33/34 (1 skipped: platform-optional)
+  - scripts.benchmark.env.benchmark_postprocess: skipped (needs platform-optional 'mlx')
+
+[script-mode] Passed: 34/35 (1 skipped: platform-optional)
+  - scripts/benchmark/env/benchmark_postprocess.py: skipped (needs platform-optional 'mlx')

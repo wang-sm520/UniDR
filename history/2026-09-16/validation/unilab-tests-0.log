@@ -1,0 +1,361 @@
+[Quadrants] version 1.3.0, llvm 22.1.0, commit ab9a58ab, linux, python 3.10.12
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/wsm/wang-sm/UniDR-9-16-resume/UniLab
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.13.0, quadrants-1.3.0, hydra-core-1.3.2
+collected 2550 items / 849 deselected / 1701 selected
+
+tests/algos/test_offpolicy_double_buffer_runner.py ..................... [  1%]
+.............                                                            [  1%]
+tests/algos/test_offpolicy_dp_sync.py ............................       [  3%]
+tests/algos/test_rsl_rl_runner.py .                                      [  3%]
+tests/assets/test_hub.py ..................                              [  4%]
+tests/assets/test_superdex_assets.py .......                             [  5%]
+tests/base/backend/test_drake_batch_pool.py ...ssss.sssssssss            [  6%]
+tests/base/backend/test_mujoco_backend_sentinel.py ..                    [  6%]
+tests/base/backend/test_mujoco_cpu_affinity_wiring.py .................. [  7%]
+                                                                         [  7%]
+tests/base/backend/test_mujoco_scene_context_visual.py ...               [  7%]
+tests/base/backend/test_mujoco_site_jacobian.py .......                  [  7%]
+tests/base/backend/test_process_device.py .............................. [  9%]
+.                                                                        [  9%]
+tests/base/test_backend_conformance.py ...........s..s..s.......s        [ 11%]
+tests/base/test_backend_imports.py ....                                  [ 11%]
+tests/base/test_backend_pre_step_control.py .............                [ 12%]
+tests/base/test_backend_sensor_view.py ............                      [ 12%]
+tests/base/test_body_state_copy.py .                                     [ 13%]
+tests/base/test_cpu_runtime.py ..........                                [ 13%]
+tests/base/test_dr_legacy_removed.py ..                                  [ 13%]
+tests/base/test_drake_mujoco_render_contract.py .                        [ 13%]
+tests/base/test_entity_facade.py ................................        [ 15%]
+tests/base/test_fixed_model_variants.py .......                          [ 16%]
+tests/base/test_genesis_backend.py ..........................            [ 17%]
+tests/base/test_isaacgym_backend.py .................................... [ 19%]
+.......                                                                  [ 20%]
+tests/base/test_isaacsim_backend.py ..............................       [ 21%]
+tests/base/test_manager_config_overlay.py ....................           [ 23%]
+tests/base/test_mjwarp_cuda_graph.py ..............                      [ 23%]
+tests/base/test_mjwarp_host_cache.py .....                               [ 24%]
+tests/base/test_mjwarp_identity.py .....                                 [ 24%]
+tests/base/test_mjwarp_playback.py .......                               [ 24%]
+tests/base/test_motrix_backend_options.py ...................            [ 26%]
+tests/base/test_newton_identity.py ..                                    [ 26%]
+tests/base/test_np_env.py .............................................. [ 28%]
+.                                                                        [ 28%]
+tests/base/test_np_env_playback_contract.py ............                 [ 29%]
+tests/base/test_registry.py ...............................              [ 31%]
+tests/base/test_reset_state.py ......................................... [ 33%]
+....                                                                     [ 34%]
+tests/base/test_reward_override.py .                                     [ 34%]
+tests/base/test_run_control.py .                                         [ 34%]
+tests/base/test_sim_backend_set_state_timing.py ....                     [ 34%]
+tests/base/test_sim_backend_smoke.py .......................             [ 35%]
+tests/base/test_superdex_backend_options.py .......                      [ 36%]
+tests/benchmark/test_env_step_config_contract.py .......                 [ 36%]
+tests/benchmark/test_mem_profile.py ..                                   [ 36%]
+tests/benchmark/test_np_env_shard_throughput_benchmark.py ..........     [ 37%]
+tests/benchmark/test_offpolicy_collector_active_benchmark.py ........... [ 37%]
+..........                                                               [ 38%]
+tests/benchmark/test_offpolicy_dp_scaling_benchmark.py ..........        [ 39%]
+tests/benchmark/test_replay_buffer_placement_benchmark.py .............. [ 39%]
+                                                                         [ 39%]
+tests/benchmark/test_sac_replay_buffer_sampling_benchmark.py .........s  [ 40%]
+tests/config/test_manager_reward_routing.py .......                      [ 40%]
+tests/config/test_reward_injection.py ....                               [ 41%]
+tests/envs/locomotion/a2/test_a2_joystick_contract.py ......             [ 41%]
+tests/envs/locomotion/go1/test_manager_based_flat_cfg.py ..........      [ 42%]
+tests/envs/locomotion/go2/test_manager_based_cfg.py .............        [ 42%]
+tests/envs/locomotion/go2w/test_go2w_manager_based_flat_cfg.py ......... [ 43%]
+..                                                                       [ 43%]
+tests/envs/locomotion/test_gait_terms.py ...................             [ 44%]
+tests/envs/locomotion/test_go2_footstand.py .........s.                  [ 45%]
+tests/envs/locomotion/test_manager_gait_terms.py ...............         [ 46%]
+tests/envs/locomotion/test_sensor_reward_terms.py ........               [ 46%]
+tests/envs/locomotion/test_terrain_spawn.py .............                [ 47%]
+tests/envs/mdp/test_command_terms.py ..                                  [ 47%]
+tests/envs/mdp/test_curriculums.py .............................         [ 49%]
+tests/envs/mdp/test_events.py .......................................... [ 51%]
+.....                                                                    [ 52%]
+tests/envs/mdp/test_joint_position_action.py ................            [ 52%]
+tests/envs/mdp/test_observations.py .....................                [ 54%]
+tests/envs/mdp/test_rewards.py .............                             [ 54%]
+tests/envs/mdp/test_terminations.py ..........                           [ 55%]
+tests/envs/mdp/test_uniform_velocity_command.py ...........              [ 56%]
+tests/envs/test_fr3_superdex.py .......sss                               [ 56%]
+tests/envs/test_go2_superdex.py .sss                                     [ 57%]
+tests/envs/test_manager_based_rl_env.py ................................ [ 58%]
+.................................                                        [ 60%]
+tests/envs/test_motion_command_partial_reset.py ..                       [ 60%]
+tests/envs/test_motion_interpolation.py ......                           [ 61%]
+tests/envs/test_motion_loader.py .........                               [ 61%]
+tests/envs/test_simtool_real_fixed_tools.py ..s                          [ 62%]
+tests/envs/test_stewart.py ...........                                   [ 62%]
+tests/integration/test_reward_injection_integration.py .                 [ 62%]
+tests/ipc/test_dp_launcher.py .......................................... [ 65%]
+........                                                                 [ 65%]
+tests/ipc/test_nan_guard_spawn_pickle.py .                               [ 65%]
+tests/managers/test_core_managers.py ...............                     [ 66%]
+tests/managers/test_event_command_metrics_recorder.py .........          [ 67%]
+tests/managers/test_isaac_lab_migration_fixture.py .....                 [ 67%]
+tests/managers/test_mjlab_migration_fixture.py ....                      [ 67%]
+tests/managers/test_observation_buffers_noise.py ....................... [ 69%]
+                                                                         [ 69%]
+tests/managers/test_observation_partial_reset.py ......                  [ 69%]
+tests/managers/test_stage_curriculum_demo.py ...                         [ 69%]
+tests/scripts/test_audit_sim2sim_contracts.py ........                   [ 70%]
+tests/scripts/test_check_docs.py F..................                     [ 71%]
+tests/scripts/test_mujoco_only_tooling_markers.py .                      [ 71%]
+tests/scripts/test_obs_alignment_g1_wbt.py ......                        [ 71%]
+tests/scripts/test_repo_hygiene.py .....                                 [ 71%]
+tests/scripts/test_torch_cuda_source.py ..                               [ 71%]
+tests/scripts/test_train_script_configs.py .                             [ 72%]
+tests/tasks/test_g1_flip_baselines.py .............                      [ 72%]
+tests/tasks/test_g1_flip_unidr.py ................                       [ 73%]
+tests/tasks/test_legacy_task_compatibility.py ........                   [ 74%]
+tests/tasks/test_migration_matrix.py ........                            [ 74%]
+tests/tasks/test_motion_term_parity.py ................                  [ 75%]
+tests/tasks/test_package_boundary.py ...                                 [ 75%]
+tests/tasks/test_production_registry_closeout.py ...                     [ 75%]
+tests/terrains/test_terrain_generator.py ...................             [ 77%]
+tests/test_bones_seed_csv.py .............                               [ 77%]
+tests/test_cli.py ..................................................     [ 80%]
+tests/test_cli_runtime_requirements.py ........                          [ 81%]
+tests/test_completion.py .................                               [ 82%]
+tests/test_export_scene.py .....                                         [ 82%]
+tests/test_import_robot.py ........                                      [ 83%]
+tests/test_library_import_boundary.py .........                          [ 83%]
+tests/test_pull_assets.py .....                                          [ 83%]
+tests/test_render_teaser.py ...                                          [ 84%]
+tests/training/test_onnx_export.py .....                                 [ 84%]
+tests/training/test_resume_logger_state.py ....                          [ 84%]
+tests/training/test_seed_contract.py .........                           [ 85%]
+tests/training/test_sim2sim_resolver.py ................................ [ 86%]
+................                                                         [ 87%]
+tests/training/test_synchronous.py ...........                           [ 88%]
+tests/training/test_training_helpers.py .............................    [ 90%]
+tests/utils/test_algo_utils.py ...........                               [ 90%]
+tests/utils/test_experiment_tracking.py ....................             [ 92%]
+tests/utils/test_math_utils.py ...........                               [ 92%]
+tests/utils/test_mjspec_sensor_compile.py .                              [ 92%]
+tests/utils/test_motion_export.py ...                                    [ 92%]
+tests/utils/test_render_many.py ..............                           [ 93%]
+tests/utils/test_utils_package_policy.py ....                            [ 94%]
+tests/utils/test_viser_scene.py s.                                       [ 94%]
+tests/utils/test_xml_utils.py .........                                  [ 94%]
+tests/visualization/test_debug_primitives.py .......                     [ 95%]
+tests/visualization/test_interactive_playback.py ....................... [ 96%]
+.......                                                                  [ 96%]
+tests/visualization/test_playback_session.py ...........                 [ 97%]
+tests/visualization/test_unidr_holdout.py .............................. [ 99%]
+.............                                                            [100%]
+
+=================================== FAILURES ===================================
+____________ test_documentation_files_match_current_repo_contracts _____________
+tests/scripts/test_check_docs.py:11: in test_documentation_files_match_current_repo_contracts
+    assert errors == []
+E   assert ["/home/wsm/w...ent record')"] == []
+E     
+E     Left contains one more item: "/home/wsm/wang-sm/UniDR-9-16-resume/UniLab/docs/unidr-synchronous-training.md: Link not found: ../logs/unidr/stop-at5000-20260916/delivery.md (text: 'the completed experiment record')"
+E     Use -v to get more diff
+=============================== warnings summary ===============================
+tests/training/test_onnx_export.py::test_export_policy_onnx_writes_expected_graph
+tests/training/test_onnx_export.py::test_verify_policy_onnx_matches_pytorch
+tests/training/test_onnx_export.py::test_verify_policy_onnx_warns_on_divergence
+tests/training/test_onnx_export.py::test_verify_policy_onnx_supports_extra_named_inputs
+tests/training/test_onnx_export.py::test_verify_policy_onnx_compares_first_element_of_tuple_output
+  /home/wsm/wang-sm/UniDR-9-16-resume/UniLab/src/unilab/training/onnx_export.py:31: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/training/test_onnx_export.py::test_export_policy_onnx_writes_expected_graph
+tests/training/test_onnx_export.py::test_verify_policy_onnx_matches_pytorch
+tests/training/test_onnx_export.py::test_verify_policy_onnx_warns_on_divergence
+tests/training/test_onnx_export.py::test_verify_policy_onnx_supports_extra_named_inputs
+tests/training/test_onnx_export.py::test_verify_policy_onnx_compares_first_element_of_tuple_output
+  /home/wsm/wang-sm/UniDR-9-16-resume/.venv/lib/python3.10/site-packages/torch/onnx/utils.py:179: DeprecationWarning: The feature will be removed. Please remove usage of this function
+    setup_onnx_logging(verbose) as log_ctx,
+
+tests/utils/test_xml_utils.py::test_materialize_mujoco_hfield_attached_scene_composes_robot_and_task_fragment
+  /home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends/src/unisim/backend/mujoco/xml.py:482: UserWarning: Attach conflict when attaching 'go2', policy is 'warning'
+  timestep: parent has 0.002 (default), child has 0.01, keeping parent value
+  ccd_iterations: parent has 35 (default), child has 500, keeping parent value
+  impratio: parent has 1 (default), child has 100, keeping parent value
+  cone: parent has 0 (default), child has 1, keeping parent value
+    root = ET.fromstring(spec.to_xml())
+
+tests/utils/test_xml_utils.py::test_materialize_mujoco_hfield_attached_scene_preserves_go1_collision_xml
+  /home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends/src/unisim/backend/mujoco/xml.py:482: UserWarning: Attach conflict when attaching 'go1', policy is 'warning'
+  timestep: parent has 0.002 (default), child has 0.01, keeping parent value
+  ccd_iterations: parent has 35 (default), child has 500, keeping parent value
+  impratio: parent has 1 (default), child has 100, keeping parent value
+  cone: parent has 0 (default), child has 1, keeping parent value
+    root = ET.fromstring(spec.to_xml())
+
+tests/utils/test_xml_utils.py::test_materialize_mujoco_hfield_attached_scene_preserves_go2w_collision_xml
+  /home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends/src/unisim/backend/mujoco/xml.py:482: UserWarning: Attach conflict when attaching 'go2', policy is 'warning'
+  ccd_iterations: parent has 35 (default), child has 500, keeping parent value
+  impratio: parent has 1 (default), child has 100, keeping parent value
+  cone: parent has 0 (default), child has 1, keeping parent value
+    root = ET.fromstring(spec.to_xml())
+
+tests/utils/test_xml_utils.py::test_materialize_mujoco_hfield_attached_scene_accepts_repo_relative_fragments
+  /home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends/src/unisim/backend/mujoco/xml.py:482: UserWarning: Attach conflict when attaching 'go2', policy is 'warning'
+  timestep: parent has 0.002 (default), child has 0.02, keeping parent value
+  impratio: parent has 1 (default), child has 100, keeping parent value
+  cone: parent has 0 (default), child has 1, keeping parent value
+    root = ET.fromstring(spec.to_xml())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.10.12-final-0 _______________
+
+Name                                                            Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------------------------------
+src/unilab/__init__.py                                              7      2    71%   8-9
+src/unilab/assets/__init__.py                                       3      0   100%
+src/unilab/assets/hub.py                                          157     24    85%   165-167, 224, 259-281, 362-379
+src/unilab/assets/pull.py                                          58      1    98%   114
+src/unilab/base/__init__.py                                         2      0   100%
+src/unilab/base/backend_factory.py                                 56     15    73%   34-41, 102, 145-156, 165-169
+src/unilab/base/base.py                                           180     23    87%   113, 128, 132, 150, 160, 170, 174, 183, 192, 201, 241, 250, 261, 285, 295, 323, 358, 440, 451, 457, 463, 469, 483
+src/unilab/base/config_adapter.py                                  85     11    87%   87, 109, 111, 115, 137, 143-146, 148, 161-163
+src/unilab/base/config_materialization.py                         236     22    91%   33-34, 68, 159, 162, 167, 173, 196, 201, 262, 271, 308, 315, 319, 342, 355, 389-390, 392-393, 404-405
+src/unilab/base/config_overrides.py                                 4      0   100%
+src/unilab/base/cpu_runtime.py                                     35      2    94%   98-101
+src/unilab/base/curriculum.py                                      13      8    38%   12-14, 18-22
+src/unilab/base/entity.py                                        1106    180    84%   65, 74, 77, 79, 81, 127, 174, 345, 415-416, 425-426, 435, 459, 481, 490-491, 499, 510, 519, 527, 535, 540, 578, 600, 666, 671, 702, 723-726, 745, 751, 758, 788, 794, 819, 824, 837, 855, 875, 886-887, 894, 916-917, 919, 922, 927, 949, 957-958, 964, 969, 978, 992, 997, 1003, 1042-1043, 1045, 1052, 1108, 1112, 1116, 1120, 1124, 1148, 1152, 1156, 1160, 1164, 1168, 1190, 1209, 1246, 1252-1255, 1295, 1329, 1334, 1343, 1366, 1429-1438, 1449-1454, 1468-1477, 1488-1493, 1546-1555, 1566-1571, 1586, 1589, 1596, 1602, 1604, 1606, 1616, 1628, 1644, 1654, 1671, 1695, 1704, 1721, 1861, 1867-1868, 1888, 1905, 1907, 1930-1931, 1946, 1952, 1957, 1983, 1989, 1992-1993, 2045-2046, 2063, 2069, 2074, 2134, 2152, 2157, 2189-2190, 2209, 2214, 2220, 2236, 2242-2245, 2307, 2313, 2318, 2330, 2340, 2346, 2351, 2363, 2373, 2379, 2384, 2393, 2419-2420, 2425-2426, 2431-2432, 2437-2438, 2443-2444, 2449-2450, 2470, 2472, 2531, 2536, 2545, 2560, 2584-2585, 2590, 2593
+src/unilab/base/env_factory.py                                     21     11    48%   35-67
+src/unilab/base/np_env.py                                         306     31    90%   181, 197, 279-281, 321-326, 328, 376-380, 401-405, 431-432, 452-456, 551-555, 581, 590-598
+src/unilab/base/process_device.py                                 169     36    79%   48, 58, 62, 65, 78, 81-90, 92, 95, 98-99, 101, 149, 154, 158, 170, 212, 250, 279, 299, 310, 337, 353, 375-387, 409, 423
+src/unilab/base/registry.py                                       160      2    99%   141, 376
+src/unilab/base/reset_state.py                                    619     37    94%   56-57, 143, 442, 740, 766, 790, 920, 923, 942, 945, 1017-1018, 1032-1033, 1056, 1081, 1084-1085, 1115-1116, 1118, 1138, 1149, 1160-1161, 1177, 1440, 1506-1513, 1556, 1565, 1575, 1590
+src/unilab/base/run_control.py                                     13      1    92%   19
+src/unilab/base/scene.py                                           22      1    95%   42
+src/unilab/base/variants.py                                        64      7    89%   38, 58, 60, 111, 113, 136, 139
+src/unilab/cli.py                                                 261     32    88%   74-75, 88, 98, 108, 121, 162-175, 197-200, 215-216, 231, 239, 251, 281, 394, 449, 499-512, 516, 520, 538
+src/unilab/cli_completion.py                                      446     78    83%   58, 62, 71, 76, 127, 141, 178, 182, 185, 208-209, 224, 230, 267-271, 282, 303, 336, 342, 348, 357, 373-374, 378, 384-385, 421, 430, 442, 496, 523, 549-551, 555-561, 568-576, 580-584, 593, 620-622, 628, 645, 650-651, 660-661, 666-667, 699-706, 710
+src/unilab/demo.py                                                136     25    82%   65-67, 73-75, 133-136, 140, 144-147, 155, 161-165, 201, 205-207, 233, 235
+src/unilab/dtype_config.py                                          6      0   100%
+src/unilab/envs/__init__.py                                         6      0   100%
+src/unilab/envs/manager_based_rl_env.py                           465     38    92%   99, 112, 114, 120, 135, 138, 140, 146, 216, 221, 225, 279, 291, 321, 354, 409, 576, 660, 670, 676, 681, 696, 705, 713-716, 727-738, 742, 744
+src/unilab/envs/mdp/__init__.py                                    61      0   100%
+src/unilab/envs/mdp/actions/__init__.py                             9      0   100%
+src/unilab/envs/mdp/actions/actions.py                            184      9    95%   27, 39, 49-50, 122, 139, 167, 190, 273
+src/unilab/envs/mdp/commands/__init__.py                            5      0   100%
+src/unilab/envs/mdp/commands/pose_command.py                       65     10    85%   26, 29, 31, 37, 41, 68, 76, 87, 91, 110
+src/unilab/envs/mdp/commands/velocity_command.py                  143      7    95%   27, 36, 81, 83, 89, 99, 108
+src/unilab/envs/mdp/curriculums.py                                108      2    98%   254, 293
+src/unilab/envs/mdp/events.py                                     575     76    87%   43-44, 46, 48, 53, 64, 66, 88, 101, 116, 121, 138-139, 144, 149, 153-154, 180, 182, 206, 209, 260, 301, 307, 331, 338, 351-355, 361-362, 367, 373, 385-388, 401, 406, 412, 417, 421, 448, 459-467, 494, 496, 502, 504, 630, 633, 664, 740, 746, 773, 776, 864, 886, 891, 961, 1113, 1154, 1184-1185, 1189, 1194, 1264, 1272, 1291, 1418, 1426, 1431, 1459
+src/unilab/envs/mdp/observations.py                               122      2    98%   50, 257
+src/unilab/envs/mdp/recorders.py                                   17      0   100%
+src/unilab/envs/mdp/rewards.py                                    179     19    89%   28, 37, 40, 54, 61, 64-65, 77, 87, 106-107, 231-233, 249, 252, 293, 296, 311
+src/unilab/envs/mdp/terminations.py                                43      5    88%   25, 30, 72, 105-106
+src/unilab/managers/__init__.py                                    37      0   100%
+src/unilab/managers/_buffers/__init__.py                            2      0   100%
+src/unilab/managers/_buffers/circular_buffer.py                    76      8    89%   140, 144, 196, 198, 238, 241, 245, 248
+src/unilab/managers/_buffers/delay_buffer.py                       88     19    78%   134, 136, 138, 140, 157, 184-185, 194-195, 202-205, 237, 252, 264-265, 288-289, 292-293
+src/unilab/managers/_noise/__init__.py                              8      0   100%
+src/unilab/managers/_noise/noise_cfg.py                            95     14    85%   47, 51, 62, 79, 92, 102, 107, 116, 121-126, 157
+src/unilab/managers/_noise/noise_model.py                          45      6    87%   30, 55, 76, 83, 87-88
+src/unilab/managers/_types.py                                     136      0   100%
+src/unilab/managers/action_manager.py                             138     28    80%   40, 66, 70, 74, 79, 100-110, 138, 156, 176, 212-218, 230, 235
+src/unilab/managers/command_manager.py                            192     46    76%   44, 55, 68, 76, 101, 103, 109, 126, 131, 136, 144-145, 169, 174, 184, 207-216, 225-229, 233, 235, 260-263, 268-269, 277, 284, 289, 307, 310, 313, 328, 331
+src/unilab/managers/curriculum_manager.py                         111     38    66%   55-64, 75-77, 80-94, 103, 107, 110, 125, 129, 136-137, 142, 154, 157, 160
+src/unilab/managers/event_manager.py                              166     37    78%   86-104, 124, 131-132, 141-144, 155, 159, 161, 166, 170, 179-183, 201, 216, 237, 255
+src/unilab/managers/manager_base.py                                74      8    89%   97, 117, 123-124, 128-129, 154, 158
+src/unilab/managers/metrics_manager.py                            148     27    82%   74-78, 102-111, 117, 123, 152, 162, 177, 189-192, 197-198, 208, 227, 230, 233
+src/unilab/managers/observation_manager.py                        370     51    86%   147, 154, 162-187, 193, 232, 242, 244, 258, 267, 293, 361, 366, 392, 426, 431, 513, 523-524, 560, 578, 600-601, 604-605, 608, 613, 639, 644, 649, 662-663, 671, 691
+src/unilab/managers/recorder_manager.py                            88     21    76%   95, 114, 136, 159-165, 169, 174, 190-192, 217, 221, 241, 244, 248-249
+src/unilab/managers/reward_manager.py                              99     15    85%   85-97, 103, 109, 121, 178
+src/unilab/managers/scene_entity_config.py                        118      0   100%
+src/unilab/managers/termination_manager.py                         90     21    77%   54-65, 71, 75, 89, 117, 121, 125-128, 133-134
+src/unilab/scripts/__init__.py                                      0      0   100%
+src/unilab/scripts/play_interactive.py                            610    610     0%   29-1216
+src/unilab/scripts/train_appo.py                                  151    151     0%   3-422
+src/unilab/scripts/train_flashsac.py                                8      8     0%   3-15
+src/unilab/scripts/train_offpolicy.py                             209    129    38%   73-81, 85-92, 113-119, 172, 270, 277-387, 391-509, 513
+src/unilab/scripts/train_rsl_rl.py                                292    292     0%   1-773
+src/unilab/scripts/train_sac.py                                     8      8     0%   3-15
+src/unilab/scripts/train_td3.py                                     8      8     0%   3-15
+src/unilab/structured_configs.py                                  233      0   100%
+src/unilab/tasks/__init__.py                                        2      0   100%
+src/unilab/tasks/compatibility.py                                  47      1    98%   107
+src/unilab/tasks/locomotion/__init__.py                             0      0   100%
+src/unilab/tasks/locomotion/a2/__init__.py                          2      0   100%
+src/unilab/tasks/locomotion/a2/joystick.py                          4      0   100%
+src/unilab/tasks/locomotion/common/__init__.py                      2      0   100%
+src/unilab/tasks/locomotion/common/gait_terms.py                  232     12    95%   43, 47, 50, 56, 80, 117, 243, 247, 298, 339, 378, 418
+src/unilab/tasks/locomotion/common/height_scan.py                  80     55    31%   69-75, 79, 89-106, 117-132, 137-141, 146-154, 158-160, 165-177
+src/unilab/tasks/locomotion/common/manager_terms.py               247     26    89%   51, 57, 59, 73, 78, 80, 86, 88, 103, 135-136, 243-244, 304, 306, 318, 352-353, 407, 469, 473, 489-490, 495, 511-512
+src/unilab/tasks/locomotion/common/rough_manager_terms.py         286    206    28%   124-132, 136-144, 148-152, 156-172, 176-181, 187-203, 223-253, 260-301, 307, 315-339, 346-352, 360-369, 376-393, 396-405, 412-449, 458-477, 487, 494-501, 504-513, 523, 530-539, 542-545, 553-560
+src/unilab/tasks/locomotion/common/sensor_reward_terms.py          54      0   100%
+src/unilab/tasks/locomotion/common/terrain_spawn.py               132     44    67%   27, 36-37, 40, 43-44, 90, 95-100, 114, 130-148, 158-184
+src/unilab/tasks/locomotion/g1/__init__.py                         21      0   100%
+src/unilab/tasks/locomotion/g1/manager_terms.py                   398    222    44%   78, 81, 83-84, 89-97, 101-108, 112-120, 124, 141-160, 167-169, 203, 214, 217, 220, 228-238, 250, 254, 262-268, 290, 309, 314, 321-322, 325-328, 331-338, 345-350, 357-362, 369-372, 378-383, 390-397, 404-411, 418-419, 422, 425-433, 445-446, 449, 459-460, 463, 472, 483-487, 493-496, 505-510, 524-527, 534-537, 543-547, 562-568, 574-579, 600-612, 621-626, 652, 660-663, 691-731, 734-736, 744-764, 787, 791, 793, 813-815
+src/unilab/tasks/locomotion/go1/__init__.py                        10      0   100%
+src/unilab/tasks/locomotion/go2/__init__.py                        12      0   100%
+src/unilab/tasks/locomotion/go2/footstand.py                      618     59    90%   122, 125, 127-128, 140, 142, 146, 152, 158, 160, 191, 197, 199, 207, 217, 219, 227, 237, 239, 250-251, 253, 255, 257, 296, 300, 320, 324, 326, 328, 368, 381, 420, 521, 605-606, 608, 639, 645, 647, 695, 700, 759, 763, 766, 849, 876, 878-880, 909, 960, 965, 970, 1005, 1008, 1016, 1019, 1048
+src/unilab/tasks/locomotion/go2w/__init__.py                       10      0   100%
+src/unilab/tasks/locomotion/go2w/base.py                           19      0   100%
+src/unilab/tasks/locomotion/go2w/manager_terms.py                 185     19    90%   43, 46, 48-49, 55, 59, 115, 127, 137, 153, 190, 192, 197, 247, 256, 293, 296-297, 299
+src/unilab/tasks/manipulation/__init__.py                           0      0   100%
+src/unilab/tasks/manipulation/allegro_inhand/__init__.py            1      0   100%
+src/unilab/tasks/manipulation/allegro_inhand/grasp_gen.py         215    170    21%   51-53, 57-64, 68-75, 79-84, 88-90, 111-174, 178, 181-186, 189-202, 209-235, 238-244, 255-275, 279, 283, 287, 290-292, 295-316, 319-328, 338-367, 370
+src/unilab/tasks/manipulation/allegro_inhand/manager_terms.py     347    277    20%   51-59, 63-65, 69-77, 81-85, 89-92, 104, 117-156, 162, 166, 170, 174, 178, 182, 185-194, 197, 200-203, 220-261, 265, 268-286, 289-319, 322-335, 346-365, 369, 372-373, 376-380, 387-399, 406-420, 427-429, 436-437, 441-442, 448-449, 453-455, 459-460, 467-518, 526-560
+src/unilab/tasks/manipulation/allegro_inhand/rotation.py            6      0   100%
+src/unilab/tasks/manipulation/fr3/__init__.py                       4      0   100%
+src/unilab/tasks/manipulation/fr3/joint_target.py                  38     26    32%   19-24, 27, 34-43, 48-49, 56-62, 72-76
+src/unilab/tasks/manipulation/simtool_real/__init__.py              2      0   100%
+src/unilab/tasks/manipulation/simtool_real/representative.py       47      2    96%   65, 67
+src/unilab/tasks/manipulation/stewart/__init__.py                   7      0   100%
+src/unilab/tasks/manipulation/stewart/balance.py                  439     41    91%   56, 59, 61-62, 64, 70, 76, 79, 81, 83, 89, 91, 95, 103, 110, 117, 167, 173, 237, 268-269, 271, 293, 297, 301, 319, 361, 377, 418, 420, 472, 541, 546, 588, 590, 669, 671, 690, 695, 734, 755
+src/unilab/tasks/migration_matrix.py                               34      0   100%
+src/unilab/tasks/motion_tracking/__init__.py                        2      0   100%
+src/unilab/tasks/motion_tracking/common/__init__.py                 0      0   100%
+src/unilab/tasks/motion_tracking/common/kernels.py                281    240    15%   44-51, 66, 85-91, 106-115, 142-279, 293-338, 377-484, 496-501, 513-526, 538-557, 569-582, 594-607
+src/unilab/tasks/motion_tracking/common/manager_terms.py          555     67    88%   47, 50-51, 53, 55, 63-64, 66, 69, 131, 140, 145, 245, 247, 249, 251, 253, 255, 259, 261, 269, 273, 281, 301, 305, 345, 349, 397, 410, 571, 578, 603, 611, 618-621, 647-648, 650, 683-684, 693, 696, 729, 739, 753-765, 776, 957-963, 1006, 1027, 1087-1088
+src/unilab/tasks/motion_tracking/common/motion_loader.py          281     42    85%   193, 195, 206, 229, 265, 268, 270, 356, 375, 415-418, 430, 437, 447, 471-500, 510-511, 564-577, 600
+src/unilab/tasks/motion_tracking/g1/__init__.py                    12      0   100%
+src/unilab/tasks/motion_tracking/g1/manager_terms.py              157     54    66%   45, 51, 73, 84, 88, 94, 105, 114, 148-149, 151, 168, 183, 220-226, 229-232, 239-243, 250-275, 283-291
+src/unilab/tasks/motion_tracking/g1/motion_box_loader.py           72      7    90%   54-55, 68-69, 89, 98, 120
+src/unilab/tasks/motion_tracking/g1/validation.py                  51      7    86%   29, 32, 34, 54, 59, 68-69
+src/unilab/tasks/motion_tracking/x2/__init__.py                    10      2    80%   14-15
+src/unilab/terrains/__init__.py                                     4      0   100%
+src/unilab/terrains/config.py                                      44      0   100%
+src/unilab/terrains/heightfield_terrains.py                       321     71    78%   70-80, 144, 189-212, 266, 273-279, 321-340, 375, 378, 414-425, 505, 563-567, 576-591
+src/unilab/terrains/utils.py                                       92     72    22%   16-44, 79-90, 97, 104, 116-178
+src/unilab/training/__init__.py                                     9      0   100%
+src/unilab/training/common.py                                      42     30    29%   16, 21-32, 43, 56-79
+src/unilab/training/experiment.py                                 303    133    56%   25, 28, 33, 35, 40-43, 52, 55-59, 76, 93, 134, 218, 236, 258, 262, 275-306, 313, 329, 333, 337-338, 341-350, 354, 358, 369-376, 381-482, 500-501
+src/unilab/training/onnx_export.py                                 26      0   100%
+src/unilab/training/run.py                                         64     26    59%   27-28, 35, 47-67, 80, 93-98, 109-111, 123
+src/unilab/training/single_comparison.py                           40     40     0%   3-72
+src/unilab/training/synchronous.py                                118     46    61%   53, 55, 63, 78, 101-125, 145-191
+src/unilab/utils/__init__.py                                        3      0   100%
+src/unilab/utils/checkpoint.py                                     80     25    69%   20-21, 34, 43, 48, 51-52, 60, 80, 84-92, 120-125, 128
+src/unilab/utils/device.py                                        263    186    29%   21, 23, 25, 30-37, 41-43, 47-61, 65-71, 75-81, 92-126, 138, 143-199, 224-228, 237-238, 253-254, 257-267, 276-281, 286-304, 307-310, 316-368, 376, 379-380, 388-399
+src/unilab/utils/geometry.py                                       38     19    50%   30, 35-39, 66, 73-74, 83-94
+src/unilab/utils/monitoring.py                                     39     31    21%   11-12, 19-34, 38-60
+src/unilab/utils/nan_guard.py                                      81     17    79%   42-47, 53, 59, 71, 75-82, 100, 106, 130-131, 137-138
+src/unilab/utils/nan_viz.py                                        72     72     0%   3-108
+src/unilab/utils/reward.py                                         22      5    77%   14, 18, 26, 35, 59
+src/unilab/utils/rotation.py                                      268     25    91%   12, 17, 19, 38, 47, 69, 79, 90, 131, 142, 144, 150, 153-157, 213, 250, 298, 300, 327, 373, 396, 428
+src/unilab/utils/seed.py                                           62     20    68%   22, 33-41, 52, 55, 61, 69, 81, 93-94, 98, 110-116
+src/unilab/utils/sim2sim.py                                       135      1    99%   144
+src/unilab/utils/tensor.py                                         26     19    27%   18-46, 51-55
+src/unilab/visualization/__init__.py                                3      0   100%
+src/unilab/visualization/debug_primitives.py                       78      9    88%   117-131, 154
+src/unilab/visualization/interactive_playback.py                  531    200    62%   104, 110-111, 126, 175, 247, 251-253, 257, 264-266, 268-273, 304-313, 316-320, 323-326, 329, 333-335, 338-356, 370-381, 385-389, 482-491, 505, 575-577, 585-608, 623-659, 675-717, 736-744, 749-753, 757-758, 769-772, 786-798, 811-866, 884, 886-887, 919-923, 950, 955, 964, 976-978, 997-1001, 1047, 1053-1054, 1061-1062, 1077
+src/unilab/visualization/playback.py                               14      0   100%
+src/unilab/visualization/playback_session.py                       75      3    96%   129, 178-179
+src/unilab/visualization/render_many.py                           370    252    32%   51, 92, 142, 178-179, 225-249, 259-436, 473-474, 504-510, 542, 547-552, 561-706, 738-739, 745-780
+src/unilab/visualization/single_reference.py                      175    175     0%   3-358
+src/unilab/visualization/teaser.py                                 50     22    56%   28-34, 55, 63-78, 82, 86
+src/unilab/visualization/unidr_holdout.py                         213     13    94%   36, 49, 62, 119, 125, 156, 159, 336, 371, 385, 390, 414, 430
+src/unilab/visualization/viser_scene.py                           127    103    19%   25, 37-65, 75, 83, 88-95, 109, 111, 136-144, 163-169, 173-175, 183-267, 275-281
+---------------------------------------------------------------------------------------------
+TOTAL                                                           18457   5456    70%
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_docs.py::test_documentation_files_match_current_repo_contracts
+= 1 failed, 1673 passed, 27 skipped, 849 deselected, 14 warnings in 393.22s (0:06:33) =

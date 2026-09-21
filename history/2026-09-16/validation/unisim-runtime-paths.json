@@ -1,0 +1,23 @@
+{
+  "python": "/home/wsm/wang-sm/UniDR-9-16-resume/.venv/bin/python3",
+  "unisim": "/home/wsm/wang-sm/UniDR-9-16-resume/unisim-unidr-backends/src/unisim/__init__.py",
+  "versions": {
+    "unisim-core": "1.3.0",
+    "mujoco": "3.11.0",
+    "numpy": "2.2.6",
+    "imageio": "2.37.3",
+    "Pillow": "11.3.0",
+    "pytest": "9.0.2",
+    "ruff": "0.15.9"
+  },
+  "env": {
+    "PYTHONPATH": null,
+    "CUDA_VISIBLE_DEVICES": "",
+    "DISPLAY": null,
+    "MUJOCO_GL": null,
+    "UV_PROJECT_ENVIRONMENT": "/home/wsm/wang-sm/UniDR-9-16-resume/.venv",
+    "UV_NO_SYNC": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  }
+}
